@@ -1,0 +1,15 @@
+# Ignore virtual environments
+backend/venv/
+
+# Ignore the specific .joblib file
+backend/controller/image-text-searcher-v-2.joblib
+
+# Ignore node_modules
+frontend/node_modules/
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+
+# Ignore environment files
+.env
