@@ -5,7 +5,7 @@ backend/venv/
 backend/controller/image-text-searcher-v-2.joblib
 
 # Ignore node_modules
-frontend/node_modules/
+/frontend/node_modules/
 
 # Ignore Python cache files
 __pycache__/
