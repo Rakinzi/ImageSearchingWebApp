@@ -1,7 +1,7 @@
 <template>
     <aside class="w-64 bg-white dark:bg-gray-800 h-full shadow-md">
       <div class="p-4">
-        <button class="p-2 w-full bg-blue-500 text-white rounded-md flex items-center justify-center space-x-2">
+        <button  @click="openUploadOverlay"  class="p-2 w-full bg-blue-500 text-white rounded-md flex items-center justify-center space-x-2">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
           </svg>
@@ -49,6 +49,14 @@
   </template>
   
   <script setup>
+ 
+    import { defineEmits } from 'vue';
+
+  const emit = defineEmits(['openUploadOverlay']);
+
+  const openUploadOverlay = () => {
+    emit('openUploadOverlay');
+  };
   </script>
   
   <style scoped>
