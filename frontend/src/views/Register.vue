@@ -84,6 +84,7 @@ const register = async () => {
     console.log("User Registered:", userCredential.user);
     router.push('/'); // Redirect after successful registration
   } catch (error) {
+    
     errorMessage.value = error.message;
   } finally {
     loading.value = false; // Stop loading spinner

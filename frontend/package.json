@@ -16,6 +16,7 @@
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.11",
     "vue": "^3.4.37",
+    "vue-advanced-cropper": "^2.8.9",
     "vue-dropzone": "^1.0.4",
     "vue-router": "^4.0.13",
     "vue-tailwind": "^2.2.0-2",
