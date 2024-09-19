@@ -13,15 +13,16 @@
         @openUploadOverlay="showOverlay = true" 
         class="fixed top-0 left-0 h-full w-64 bg-gray-200 dark:bg-gray-800"
       />
-      <div class="flex-1 flex flex-col ml-64"> <!-- Adjust left margin to accommodate SideNav width -->
-        <Navbar 
-          v-if="isAuthenticated && !isAuthRoute" 
-          class="fixed top-0 left-64 right-0 bg-white dark:bg-gray-900 shadow-md"
-        />
-        <main class="flex-1 p-4 mt-16 bg-gray-100 dark:bg-gray-900"> <!-- Add top margin to account for Navbar height -->
-          <router-view />
-        </main>
-      </div>
+      <div :class="{ 'ml-64': isAuthenticated && !isAuthRoute }" class="flex-1 flex flex-col">
+    <Navbar 
+      v-if="isAuthenticated && !isAuthRoute" 
+      class="fixed top-0 left-64 right-0 bg-white dark:bg-gray-900 shadow-md"
+    />
+    
+    <main :class="{ 'mt-16': isAuthenticated && !isAuthRoute }"  class="flex-1 p-4  bg-gray-100 dark:bg-gray-900">
+      <router-view />
+    </main>
+  </div>
     </div>
     <FileUploadOverlay :showOverlay="showOverlay" @close="showOverlay = false" />
   </div>

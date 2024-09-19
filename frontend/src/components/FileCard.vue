@@ -3,13 +3,6 @@
     <div v-if="visible" class="bg-white dark:bg-gray-800 rounded-lg py-2 shadow-md flex flex-col items-center space-y-4">
       <!-- File Image -->
       <img :src="file.url" alt="file icon" class="w-full mb-4">
-
-      <!-- File Name and Size -->
-      <div class="text-center">
-        <h3 class="text-gray-800 dark:text-white font-semibold">{{ file.name }}</h3>
-        <p class="text-sm text-gray-500 dark:text-gray-300">{{ file.size }}</p>
-      </div>
-
       <!-- Delete Button -->
       <button @click="deleteFile" class="mt-4 bg-red-500 text-white py-1 px-4 rounded-md">
         Delete
