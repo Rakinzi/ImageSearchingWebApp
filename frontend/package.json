@@ -12,6 +12,7 @@
     "@tailwindcss/forms": "^0.5.9",
     "autoprefixer": "^10.4.20",
     "axios": "^1.7.7",
+    "dropzone": "^6.0.0-beta.2",
     "firebase": "^10.13.1",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.11",

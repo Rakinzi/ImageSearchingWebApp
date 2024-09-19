@@ -2,40 +2,58 @@
   <div class="p-4 dark:bg-gray-900 min-h-screen">
     <h1 class="text-3xl font-bold dark:text-white">My Files</h1>
 
-    <!-- Loading Animation -->
+    <!-- Dropzone Container -->
+    <form
+      id="dropzone"
+      class="dropzone border-dashed border-4 border-gray-500 rounded-lg p-4 mt-4"
+    >
+      <!-- Only show the dz-message if no files are selected -->
+      <div v-if="selectedFiles.length === 0" class="dz-message text-gray-500 dark:text-gray-400">
+        Drag and drop image files here or click to upload
+      </div>
+    </form>
+
+    <!-- Loading Animation for Full Page -->
     <div v-if="isLoading" class="flex items-center justify-center min-h-screen">
       <div class="w-16 h-16 border-4 border-t-4 border-gray-500 border-opacity-50 border-t-transparent rounded-full animate-spin"></div>
     </div>
 
     <!-- Display files from Firebase -->
     <div v-else class="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-      <FileCard v-for="file in files" :key="file.name" :file="file" />
+      <FileCard 
+        v-for="file in files" 
+        :key="file.name" 
+        :file="file" 
+        :loading="file.loading"
+      />
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { storage } from '../services/firebase'; // Import your Firebase storage
-import { listAll, ref as storageRef, getDownloadURL } from 'firebase/storage';
+import Dropzone from 'dropzone';
+import { storage } from '../services/firebase';
+import { listAll, ref as storageRef, getDownloadURL, uploadBytesResumable } from 'firebase/storage';
 import FileCard from '../components/FileCard.vue';
-import UploadButton from '../components/UploadButton.vue';
 
-const files = ref([]); // Create a reactive list to store file information
-const isLoading = ref(true); // Create a loading state
+const files = ref([]); // Reactive list to store uploaded files
+const selectedFiles = ref([]); // Track files selected by the user for upload
+const isLoading = ref(true); // Loading state
 
 // Function to load files from Firebase Storage
 const loadFiles = async () => {
-  const folderRef = storageRef(storage, 'uploads'); // Specify the folder path in Firebase Storage
+  const folderRef = storageRef(storage, 'uploads'); // Folder path in Firebase Storage
 
   try {
-    const result = await listAll(folderRef); // List all files in the folder
+    const result = await listAll(folderRef); // List all files
     const filePromises = result.items.map(async (fileRef) => {
       const url = await getDownloadURL(fileRef); // Get the file URL
       return {
         name: fileRef.name,
         url: url,
-        icon: 'https://via.placeholder.com/50x50.png?text=FILE' // Placeholder icon, update accordingly
+        loading: false, // No loading when fetching
+        icon: 'https://via.placeholder.com/50x50.png?text=FILE' // Placeholder icon
       };
     });
 
@@ -44,13 +62,77 @@ const loadFiles = async () => {
   } catch (error) {
     console.error('Error loading files:', error);
   } finally {
-    isLoading.value = false; // Set loading state to false after loading is complete
+    isLoading.value = false; // Set loading state to false after loading
   }
 };
 
-// Load files when the component is mounted
+// Function to upload file to Firebase with progress tracking
+const uploadFile = (file, dropzoneFile) => {
+  const fileRef = storageRef(storage, `uploads/${file.name}`);
+  const uploadTask = uploadBytesResumable(fileRef, file);
+
+  // Add the file to the list with a loading state
+  const newFile = {
+    name: file.name,
+    url: '',
+    loading: true,
+    progress: 0, // Initial progress set to 0
+    icon: 'https://via.placeholder.com/50x50.png?text=LOADING' // Placeholder icon
+  };
+
+  files.value.push(newFile);
+
+  // Track upload progress and update UI
+  uploadTask.on(
+    'state_changed',
+    (snapshot) => {
+      const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+      const progressBar = dropzoneFile.previewElement.querySelector('.dz-progress .dz-upload');
+      progressBar.style.width = `${progress}%`; // Update the progress bar width
+    },
+    (error) => console.error('Error uploading file:', error),
+    async () => {
+      const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+      const fileIndex = files.value.findIndex(f => f.name === file.name);
+      files.value[fileIndex].url = downloadURL;
+      files.value[fileIndex].loading = false; // Stop loading once uploaded
+
+      // Remove file from Dropzone once upload is done
+      dropzoneFile.previewElement.remove();
+
+      // Remove the file from the selectedFiles array after successful upload
+      selectedFiles.value = selectedFiles.value.filter(f => f.name !== file.name);
+    }
+  );
+};
+
+// Initialize Dropzone
 onMounted(() => {
   loadFiles();
+
+  const dropzoneElement = document.querySelector('#dropzone');
+  
+  // Initialize Dropzone instance
+  const dropzone = new Dropzone(dropzoneElement, {
+    url: '/', // We won't use Dropzone's upload mechanism
+    autoProcessQueue: false, // Disable auto-processing of files
+    acceptedFiles: 'image/*', // Accept only image files
+    init() {
+      this.on('addedfile', (file) => {
+        selectedFiles.value.push(file); // Add the selected file to the array
+        uploadFile(file, file); // Call uploadFile with the dropzone file reference
+      });
+    },
+    previewsContainer: '#dropzone', // Make sure previews appear in the dropzone
+    previewTemplate: `
+      <div class="dz-preview dz-file-preview">
+        <div class="dz-image"><img data-dz-thumbnail /></div>
+        <div class="dz-progress">
+          <span class="dz-upload" data-dz-uploadprogress style="width: 0%; background-color: #4ade80; height: 5px;"></span>
+        </div>
+      </div>
+    `
+  });
 });
 </script>
 
@@ -88,5 +170,34 @@ onMounted(() => {
 .animate-spin {
   animation: spin 1s linear infinite;
 }
-</style>
 
+.dropzone {
+  min-height: 150px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+}
+
+.dz-message {
+  font-size: 1.2rem;
+}
+
+.dz-progress {
+  width: 100%;
+  background-color: #f3f4f6;
+  border-radius: 5px;
+  margin-top: 0.5rem;
+}
+
+.dz-upload {
+  background-color: #4ade80; /* Green progress bar */
+  height: 5px;
+  transition: width 0.3s ease-in-out;
+}
+
+.dz-image img {
+  width: 100%;
+  height: auto;
+}
+</style>
