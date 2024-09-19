@@ -1,7 +1,7 @@
 from nltk.corpus import words, stopwords
 from nltk.tokenize import word_tokenize
 import string
-import nltk
+# import nltk
 import contractions
 from dateutil import parser
 import enchant
@@ -10,7 +10,7 @@ import enchant
 # nltk.download('stopwords')
 # nltk.download('words')
 # nltk.download('punkt')
-nltk.download('punkt_tab')
+# nltk.download('punkt_tab')
 
 class TextProcessing:
     @staticmethod

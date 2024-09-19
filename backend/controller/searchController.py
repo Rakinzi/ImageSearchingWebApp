@@ -4,7 +4,7 @@ from PIL import Image
 from joblib import load
 from controller.textProcessingController import TextProcessing
 
-chroma_client = chromadb.PersistentClient('../controller/db/')
+chroma_client = chromadb.PersistentClient('./controller/db/')
 images = chroma_client.get_or_create_collection(name='image_vectors', metadata={"hnsw:space": "cosine"})
 
 
@@ -56,13 +56,13 @@ class ImageSearcher:
                 return results['ids']
             else:
                 return None
-        if len(tokens) == 0:
-            print(f"Not an english word:", query)
-            return None
-        for token in tokens:
-            if not self.TextProcessing.check_word(token):
-                print(f"Not an english word:", token)
-                return None
+        # if len(tokens) == 0:
+        #     print(f"Not an english word:", query)
+        #     return None
+        # for token in tokens:
+        #     if not self.TextProcessing.check_word(token):
+        #         print(f"Not an english word:", token)
+        #         return None
         model = self.model
         text_emb = model.encode(query).tolist()
         results = images.query(

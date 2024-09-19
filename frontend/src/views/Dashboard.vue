@@ -4,7 +4,7 @@
 
     <!-- Dropzone Container -->
     <form
-      id="dropzone"
+      id="myDropzone"
       class="dropzone border-dashed border-4 border-gray-500 rounded-lg p-4 mt-4"
     >
       <!-- Only show the dz-message if no files are selected -->
@@ -33,8 +33,9 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import Dropzone from 'dropzone';
+import moment from 'moment';
 import { storage } from '../services/firebase';
-import { listAll, ref as storageRef, getDownloadURL, uploadBytesResumable } from 'firebase/storage';
+import { ref as storageRef, getDownloadURL, uploadBytesResumable, listAll } from 'firebase/storage';
 import FileCard from '../components/FileCard.vue';
 
 const files = ref([]); // Reactive list to store uploaded files
@@ -43,93 +44,120 @@ const isLoading = ref(true); // Loading state
 
 // Function to load files from Firebase Storage
 const loadFiles = async () => {
-  const folderRef = storageRef(storage, 'uploads'); // Folder path in Firebase Storage
-
+  const folderRef = storageRef(storage, 'uploads');
   try {
-    const result = await listAll(folderRef); // List all files
+    const result = await listAll(folderRef);
     const filePromises = result.items.map(async (fileRef) => {
-      const url = await getDownloadURL(fileRef); // Get the file URL
+      const url = await getDownloadURL(fileRef);
       return {
         name: fileRef.name,
         url: url,
-        loading: false, // No loading when fetching
-        icon: 'https://via.placeholder.com/50x50.png?text=FILE' // Placeholder icon
+        loading: false,
+        icon: url
       };
     });
-
-    // Resolve all file promises
     files.value = await Promise.all(filePromises);
   } catch (error) {
     console.error('Error loading files:', error);
   } finally {
-    isLoading.value = false; // Set loading state to false after loading
+    isLoading.value = false;
   }
 };
 
-// Function to upload file to Firebase with progress tracking
-const uploadFile = (file, dropzoneFile) => {
-  const fileRef = storageRef(storage, `uploads/${file.name}`);
-  const uploadTask = uploadBytesResumable(fileRef, file);
+// Function to upload files to Firebase
+const uploadToFirebase = async (uploadedFiles) => {
+  for (const file of uploadedFiles) {
+    console.log(file.name)
+    const fileRef = storageRef(storage, `uploads/${file.name}`);
+    const uploadTask = uploadBytesResumable(fileRef, file);
 
-  // Add the file to the list with a loading state
-  const newFile = {
-    name: file.name,
-    url: '',
-    loading: true,
-    progress: 0, // Initial progress set to 0
-    icon: 'https://via.placeholder.com/50x50.png?text=LOADING' // Placeholder icon
-  };
+    // Add the file to the list with a loading state
+    files.value.push({
+      name: file.name,
+      url: '',
+      loading: true,
+      progress: 0,
+      icon: URL.createObjectURL(file)
+    });
 
-  files.value.push(newFile);
-
-  // Track upload progress and update UI
-  uploadTask.on(
-    'state_changed',
-    (snapshot) => {
-      const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-      const progressBar = dropzoneFile.previewElement.querySelector('.dz-progress .dz-upload');
-      progressBar.style.width = `${progress}%`; // Update the progress bar width
-    },
-    (error) => console.error('Error uploading file:', error),
-    async () => {
-      const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-      const fileIndex = files.value.findIndex(f => f.name === file.name);
-      files.value[fileIndex].url = downloadURL;
-      files.value[fileIndex].loading = false; // Stop loading once uploaded
-
-      // Remove file from Dropzone once upload is done
-      dropzoneFile.previewElement.remove();
-
-      // Remove the file from the selectedFiles array after successful upload
-      selectedFiles.value = selectedFiles.value.filter(f => f.name !== file.name);
-    }
-  );
+    // Track upload progress and update UI
+    uploadTask.on(
+      'state_changed',
+      (snapshot) => {
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        const fileIndex = files.value.findIndex(f => f.name === file.name);
+        if (fileIndex !== -1) {
+          files.value[fileIndex].progress = progress;
+        }
+      },
+      (error) => console.error('Error uploading file to Firebase:', error),
+      async () => {
+        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+        const fileIndex = files.value.findIndex(f => f.name === file.name);
+        if (fileIndex !== -1) {
+          files.value[fileIndex] = {
+            ...files.value[fileIndex],
+            url: downloadURL,
+            loading: false,
+            icon: downloadURL
+          };
+        }
+      }
+    );
+  }
 };
 
 // Initialize Dropzone
 onMounted(() => {
   loadFiles();
 
-  const dropzoneElement = document.querySelector('#dropzone');
-  
-  // Initialize Dropzone instance
-  const dropzone = new Dropzone(dropzoneElement, {
-    url: '/', // We won't use Dropzone's upload mechanism
-    autoProcessQueue: false, // Disable auto-processing of files
+  Dropzone.autoDiscover = false;
+  const dropzone = new Dropzone("#myDropzone", {
+    url: "http://127.0.0.1:5000/serve_images", // Flask endpoint URL
+    method: "POST",
+    maxFilesize: 5, // Max file size in MB
     acceptedFiles: 'image/*', // Accept only image files
-    init() {
-      this.on('addedfile', (file) => {
-        selectedFiles.value.push(file); // Add the selected file to the array
-        uploadFile(file, file); // Call uploadFile with the dropzone file reference
+    autoProcessQueue: true,
+    uploadMultiple: true,
+    paramName: "image",
+    clickable: true,
+    init: function() {
+      this.on('addedfiles', (files) => {
+        selectedFiles.value.push(...files);
+      });
+      this.on('sendingmultiple', (files, xhr, formData) => {
+        let imageDetailsArray = [];
+        files.forEach(file => {
+          const imageUri = URL.createObjectURL(file);
+          const imageType = file.type;
+          const filename = file.name;
+          const creationDate = moment(file.lastModified).format('YYYY-MM-DD');
+          // Collect image details for each file
+          imageDetailsArray.push({
+            creationDate: creationDate,
+            filename: filename,
+            uri: imageUri
+          });
+        });
+        // Append the image details array as a JSON string
+        formData.append('image_details', JSON.stringify(imageDetailsArray));
+      });
+      this.on('successmultiple', (files, response) => {
+        if (response.status) {
+          uploadToFirebase(files);
+        } else {
+          console.error('Error uploading files to server:', response.message);
+        }
+      });
+      this.on('errormultiple', (files, errorMessage) => {
+        console.error('Error uploading files:', errorMessage);
       });
     },
-    previewsContainer: '#dropzone', // Make sure previews appear in the dropzone
     previewTemplate: `
       <div class="dz-preview dz-file-preview">
         <div class="dz-image"><img data-dz-thumbnail /></div>
-        <div class="dz-progress">
-          <span class="dz-upload" data-dz-uploadprogress style="width: 0%; background-color: #4ade80; height: 5px;"></span>
-        </div>
+        <div class="dz-progress"><span class="dz-upload" data-dz-uploadprogress></span></div>
+        <div class="dz-error-message"><span data-dz-errormessage></span></div>
       </div>
     `
   });
