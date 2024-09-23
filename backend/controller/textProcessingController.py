@@ -1,7 +1,7 @@
 from nltk.corpus import words, stopwords
 from nltk.tokenize import word_tokenize
 import string
-# import nltk
+import nltk
 import contractions
 from dateutil import parser
 import enchant

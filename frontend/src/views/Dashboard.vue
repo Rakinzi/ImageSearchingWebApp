@@ -3,10 +3,7 @@
     <h1 class="text-3xl font-bold dark:text-white">My Files</h1>
 
     <!-- Dropzone Container -->
-    <form
-      id="myDropzone"
-      class="dropzone border-dashed border-4 border-gray-500 rounded-lg p-4 mt-4"
-    >
+    <form id="myDropzone" class="dropzone border-dashed border-4 border-gray-500 rounded-lg p-4 mt-4">
       <!-- Only show the dz-message if no files are selected -->
       <div v-if="selectedFiles.length === 0" class="dz-message text-gray-500 dark:text-gray-400">
         Drag and drop image files here or click to upload
@@ -15,17 +12,14 @@
 
     <!-- Loading Animation for Full Page -->
     <div v-if="isLoading" class="flex items-center justify-center min-h-screen">
-      <div class="w-16 h-16 border-4 border-t-4 border-gray-500 border-opacity-50 border-t-transparent rounded-full animate-spin"></div>
+      <div
+        class="w-16 h-16 border-4 border-t-4 border-gray-500 border-opacity-50 border-t-transparent rounded-full animate-spin">
+      </div>
     </div>
 
     <!-- Display files from Firebase -->
     <div v-else class="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-      <FileCard 
-        v-for="file in files" 
-        :key="file.name" 
-        :file="file" 
-        :loading="file.loading"
-      />
+      <FileCard v-for="file in files" :key="file.name" :file="file" :loading="file.loading" />
     </div>
   </div>
 </template>
@@ -67,7 +61,7 @@ const loadFiles = async () => {
 // Function to upload files to Firebase
 const uploadToFirebase = async (uploadedFiles) => {
   for (const file of uploadedFiles) {
-    console.log(file.name)
+    console.log(`Uploading file: ${file.name}`);
     const fileRef = storageRef(storage, `uploads/${file.name}`);
     const uploadTask = uploadBytesResumable(fileRef, file);
 
@@ -92,20 +86,27 @@ const uploadToFirebase = async (uploadedFiles) => {
       },
       (error) => console.error('Error uploading file to Firebase:', error),
       async () => {
-        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-        const fileIndex = files.value.findIndex(f => f.name === file.name);
-        if (fileIndex !== -1) {
-          files.value[fileIndex] = {
-            ...files.value[fileIndex],
-            url: downloadURL,
-            loading: false,
-            icon: downloadURL
-          };
+        try {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          const fileIndex = files.value.findIndex(f => f.name === file.name);
+          if (fileIndex !== -1) {
+            files.value[fileIndex] = {
+              ...files.value[fileIndex],
+              url: downloadURL,
+              loading: false,
+              icon: downloadURL
+            };
+          }
+          // Log the download URL to the console
+          console.log(`File uploaded successfully: ${downloadURL}`);
+        } catch (error) {
+          console.error('Error getting download URL:', error);
         }
       }
     );
   }
 };
+
 
 // Initialize Dropzone
 onMounted(() => {
@@ -119,9 +120,10 @@ onMounted(() => {
     acceptedFiles: 'image/*', // Accept only image files
     autoProcessQueue: true,
     uploadMultiple: true,
+    parallelUploads: 100,
     paramName: "image",
     clickable: true,
-    init: function() {
+    init: function () {
       this.on('addedfiles', (files) => {
         selectedFiles.value.push(...files);
       });
@@ -136,7 +138,8 @@ onMounted(() => {
           imageDetailsArray.push({
             creationDate: creationDate,
             filename: filename,
-            uri: imageUri
+            uri: imageUri,
+            content_type: imageType // Add this field to avoid errors in Flask
           });
         });
         // Append the image details array as a JSON string
@@ -148,6 +151,7 @@ onMounted(() => {
         } else {
           console.error('Error uploading files to server:', response.message);
         }
+          
       });
       this.on('errormultiple', (files, errorMessage) => {
         console.error('Error uploading files:', errorMessage);
@@ -167,34 +171,47 @@ onMounted(() => {
 <style scoped>
 /* Loading spinner style */
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .w-16 {
   width: 4rem;
 }
+
 .h-16 {
   height: 4rem;
 }
+
 .border-4 {
   border-width: 4px;
 }
+
 .border-t-4 {
   border-top-width: 4px;
 }
+
 .border-gray-500 {
   border-color: #6b7280;
 }
+
 .border-opacity-50 {
   border-opacity: 0.5;
 }
+
 .border-t-transparent {
   border-top-color: transparent;
 }
+
 .rounded-full {
   border-radius: 9999px;
 }
+
 .animate-spin {
   animation: spin 1s linear infinite;
 }
@@ -219,7 +236,8 @@ onMounted(() => {
 }
 
 .dz-upload {
-  background-color: #4ade80; /* Green progress bar */
+  background-color: #4ade80;
+  /* Green progress bar */
   height: 5px;
   transition: width 0.3s ease-in-out;
 }

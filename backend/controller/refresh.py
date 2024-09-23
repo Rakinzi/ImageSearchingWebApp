@@ -1,4 +1,5 @@
 import chromadb
 
 chroma_client = chromadb.PersistentClient('./db/')
-chroma_client.delete_collection(name='image_vectors')
+images = chroma_client.get_collection(name='image_vectors')
+print(images.get())

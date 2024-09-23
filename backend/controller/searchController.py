@@ -4,13 +4,16 @@ from PIL import Image
 from joblib import load
 from controller.textProcessingController import TextProcessing
 
-chroma_client = chromadb.PersistentClient('./controller/db/')
-images = chroma_client.get_or_create_collection(name='image_vectors', metadata={"hnsw:space": "cosine"})
+
+# Configure ChromaDB
 
 
 class ImageSearcher:
     def __init__(self):
         self.model = load('controller/image-text-searcher-v-2.joblib')
+        self.chroma_client = chromadb.PersistentClient('./controller/db/')
+        self.images = self.chroma_client.get_or_create_collection(name='image_vectors',
+                                                                  metadata={"hnsw:space": "cosine"})
         self.TextProcessing = TextProcessing()
 
     def seed_one_image(self, image_uri, image_data, image_format, image_date):
@@ -24,8 +27,9 @@ class ImageSearcher:
                         "image_date": image_date,
                         "type": image_format,
                     }
+
                     ids = image_uri
-                    images.upsert(
+                    self.images.upsert(
                         embeddings=embedding_list,
                         ids=ids,
                         metadatas=metadata
@@ -47,7 +51,7 @@ class ImageSearcher:
                 print(
                     date_search
                 )
-                results = images.get(where={"image_date": {
+                results = self.images.get(where={"image_date": {
                     "$eq": date_search
                 }})
                 print(results)
@@ -65,13 +69,12 @@ class ImageSearcher:
         #         return None
         model = self.model
         text_emb = model.encode(query).tolist()
-        results = images.query(
+        results = self.images.query(
             query_embeddings=text_emb,
             n_results=5,
         )
         print(results)
         return results['ids'][0]
 
-    @staticmethod
-    def get_inserted_images():
-        return images.get()
+    def get_inserted_images(self):
+        return self.images.get()
