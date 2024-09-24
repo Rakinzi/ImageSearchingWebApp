@@ -4,9 +4,9 @@
       <!-- File Image -->
       <img :src="file.url" alt="file icon" class="w-full mb-4">
       <!-- Delete Button -->
-      <button @click="deleteFile" class="mt-4 bg-red-500 text-white py-1 px-4 rounded-md">
+      <!-- <button @click="deleteFile" class="mt-4 bg-red-500 text-white py-1 px-4 rounded-md">
         Delete
-      </button>
+      </button> -->
     </div>
   </transition>
 </template>
