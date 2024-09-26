@@ -26,3 +26,8 @@ def process_images(file_data, image_details):
     except Exception as e:
         logger.error("Error processing image: %s", str(e))
         return {'status': False, 'error': str(e)}
+
+
+# @shared_task
+# def process_faces():
+

@@ -49,7 +49,6 @@ class ImageProcessor(ImageSearcher):
                 images = None
                 return message, images, 0
             message = "Images Returned"
-            images = None
             return message, images, 1
         else:
             message = "The key query is not found in your data"

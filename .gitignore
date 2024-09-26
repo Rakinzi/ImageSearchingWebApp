@@ -2,7 +2,7 @@
 backend/venv/
 
 # Ignore the specific .joblib file
-backend/controller/image-text-searcher-v-2.joblib
+backend/controller/*.joblib
 backend/.idea/
 backend/static/uploads/images/*.png
 backend/static/uploads/images/*.jpg

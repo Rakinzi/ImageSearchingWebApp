@@ -1,8 +1,11 @@
 from io import BytesIO
 import chromadb
+import torch
 from PIL import Image
 from joblib import load
 from controller.textProcessingController import TextProcessing
+import os
+import clip
 
 
 # Configure ChromaDB
@@ -10,18 +13,30 @@ from controller.textProcessingController import TextProcessing
 
 class ImageSearcher:
     def __init__(self):
-        self.model = load('controller/image-text-searcher-v-2.joblib')
+        controller_folder = 'controller'
+        model_path = os.path.join(controller_folder, 'image-text-searcher-v-3.joblib')
+        preprocessor_path = os.path.join(controller_folder, 'preprocessor-v-3.joblib')
+        model = load(model_path)
+        self.model = model.eval()
+        self.preprocessor = load(preprocessor_path)
         self.chroma_client = chromadb.PersistentClient('./controller/db/')
         self.images = self.chroma_client.get_or_create_collection(name='image_vectors',
-                                                                  metadata={"hnsw:space": "cosine"})
+                                                                  metadata={"hnsw:space": "cosine"}
+                                                                  )
         self.TextProcessing = TextProcessing()
 
     def seed_one_image(self, image_uri, image_data, image_format, image_date):
-        model = self.model
         try:
             with Image.open(BytesIO(image_data)) as img:
                 try:
-                    embedding = model.encode(img)
+                    image_input = self.preprocessor(img).unsqueeze(0).to('cpu')
+
+                    with torch.no_grad():
+                        embedding = self.model.encode_image(image_input).cpu().numpy()
+
+                    # Print the dimensions of the embeddings
+                    print(f"Embedding dimensions for {image_uri}: {embedding.shape}")
+
                     embedding_list = embedding.tolist()
                     metadata = {
                         "image_date": image_date,
@@ -67,14 +82,26 @@ class ImageSearcher:
         #     if not self.TextProcessing.check_word(token):
         #         print(f"Not an english word:", token)
         #         return None
-        model = self.model
-        text_emb = model.encode(query).tolist()
-        results = self.images.query(
-            query_embeddings=text_emb,
-            n_results=5,
-        )
-        print(results)
-        return results['ids'][0]
+        try:
+            text_input = clip.tokenize([query]).to('cpu')
+            with torch.no_grad():
+                embedding = self.model.encode_text(text_input).cpu().numpy()
+
+            text_emb = embedding.tolist()
+            results = self.images.query(
+                query_embeddings=text_emb,
+                n_results=5,
+            )
+
+            print(results)
+            if results and results['ids']:
+                return results['ids'][0]
+            else:
+                return None
+
+        except Exception as e:
+            print(f"Text embedding or query failed: {e}")
+            return None
 
     def get_inserted_images(self):
         return self.images.get()

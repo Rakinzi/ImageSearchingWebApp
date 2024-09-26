@@ -22,7 +22,6 @@ app.register_blueprint(images_blueprint)
 app.register_blueprint(faces_blueprint, url_prefix='/faces')
 
 
-
 def create_upload_folder():
     upload_folder = "static/uploads/images"
     if not os.path.exists(upload_folder):

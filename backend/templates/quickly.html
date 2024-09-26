@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Processed Faces</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        #loading, #error {
+            display: none;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+
+        #error {
+            color: red;
+        }
+
+        .face-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .face {
+            margin: 10px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .face:hover, .face:focus {
+            transform: scale(1.05);
+        }
+
+        .face img {
+            width: 150px;
+            height: 150px;
+            object-fit: cover;
+        }
+
+        .related-images {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .related-images img {
+            width: 150px;
+            height: 150px;
+            object-fit: cover;
+            margin: 10px;
+        }
+
+        @media (max-width: 600px) {
+            .face img, .related-images img {
+                width: 100px;
+                height: 100px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<h1>Previously Processed Faces</h1>
+
+<div id="loading" aria-live="polite">Loading faces...</div>
+<div id="error" aria-live="assertive"></div>
+
+<div class="face-container" id="face-container"></div>
+
+<h2>Related Images</h2>
+<div class="related-images" id="related-images"></div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const loadingElement = document.getElementById('loading');
+        const errorElement = document.getElementById('error');
+        const faceContainer = document.getElementById('face-container');
+        const relatedImagesContainer = document.getElementById('related-images');
+
+        function showLoading(message = 'Loading...') {
+            loadingElement.textContent = message;
+            loadingElement.style.display = 'block';
+        }
+
+        function hideLoading() {
+            loadingElement.style.display = 'none';
+        }
+
+        function showError(message) {
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+
+        function hideError() {
+            errorElement.style.display = 'none';
+        }
+
+        showLoading('Loading faces...');
+
+        fetch('/faces/process')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                const { face_images } = data;
+                hideLoading();
+                hideError();
+
+                face_images.forEach((faceImagePath, index) => {
+                    const faceDiv = document.createElement('div');
+                    faceDiv.classList.add('face');
+                    faceDiv.setAttribute('tabindex', '0');
+                    faceDiv.innerHTML = `<img src="/faces/image/${faceImagePath}" data-face-id="${index}" alt="Face ${index + 1}" loading="lazy">`;
+                    faceContainer.appendChild(faceDiv);
+
+                    faceDiv.addEventListener('click', function() {
+                        fetchRelatedImages(index);
+                    });
+
+                    faceDiv.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            fetchRelatedImages(index);
+                        }
+                    });
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching faces:', error);
+                hideLoading();
+                showError('Failed to load faces. Please try again later.');
+            });
+
+        function fetchRelatedImages(faceId) {
+            showLoading('Loading related images...');
+            hideError();
+
+            fetch(`/faces/related_images/${faceId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    relatedImagesContainer.innerHTML = '';
+                    const { related_images } = data;
+
+                    related_images.forEach(imagePath => {
+                        const imgElement = document.createElement('img');
+                        imgElement.src = `/faces/image/${imagePath}`;
+                        imgElement.alt = `Related image for face ${faceId + 1}`;
+                        imgElement.loading = 'lazy';
+                        relatedImagesContainer.appendChild(imgElement);
+                    });
+
+                    hideLoading();
+                })
+                .catch(error => {
+                    console.error('Error fetching related images:', error);
+                    hideLoading();
+                    showError('Failed to load related images. Please try again later.');
+                });
+        }
+    });
+</script>
+
+</body>
+</html>

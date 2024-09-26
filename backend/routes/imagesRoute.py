@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, render_template
 from tasks.imageProcessingAsync import process_images
 import json
 from controller.imageProcessingController import ImageProcessor
@@ -8,13 +8,17 @@ images_blueprint = Blueprint('images', __name__)
 
 @images_blueprint.route('/')
 def index():
-    return 'Hello Photoooooooo'
+    return render_template('index.html')
 
+@images_blueprint.route('/quickly')
+def quickly():
+    return render_template('quickly.html')
 
 @images_blueprint.route('/serve_images', methods=['POST'])
 def serve_images():
     if request.method == 'POST':
         files = list(request.files.values())
+        print(request.form.get('image_details'))
         image_details_list = json.loads(request.form.get('image_details'))
         print(len(files))
         task_ids = []
