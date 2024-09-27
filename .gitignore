@@ -8,6 +8,7 @@ backend/static/uploads/images/*.png
 backend/static/uploads/images/*.jpg
 backend/static/uploads/images/*.jpeg
 backend/static/uploads/images/*.gif
+venv
 
 !static/uploads/images/
 
