@@ -21,6 +21,52 @@ Image Searcher is designed to help users find and manage images easily. The syst
 - **`backend/`**: Contains all the server-side code and configuration, including API endpoints, database interactions, and image processing logic.
 - **`frontend/`**: Includes all the client-side code and assets, such as HTML, CSS, JavaScript, and user interface components.
 
+# Frontend Vite App
+
+This is a Vite-powered frontend project located in the `frontend` directory. The project is configured to use Yarn as the package manager and includes Vue Router for handling navigation.
+
+## Prerequisites
+
+Before starting, ensure that you have the following installed:
+
+- **Node.js**: Version `16.x.x` or above is required.
+- **Yarn**: The recommended package manager for this project.
+
+> You can also use `npm` if you prefer, but Yarn is recommended.
+
+### Check Node.js version
+
+To ensure you have the correct version of Node.js installed, run:
+
+```bash
+node -v
+```
+
+```bash
+
+frontend/
+├── public/                     # Static files
+├── src/
+│   ├── assets/                 # Assets like images, fonts, etc.
+│   ├── components/             # Reusable Vue components
+│   │   └── Navbar.vue          # Example component
+│   ├── views/                  # Pages or views
+│   │   └── Home.vue            # Example home page view
+│   ├── router/                 # Vue Router configurations
+│   │   └── index.js            # Router setup and routes
+│   ├── App.vue                 # Root Vue component
+│   ├── main.js                 # Main entry file
+│   └── store/                  # Vuex store (if applicable)
+│       └── index.js            # Vuex state management setup
+├── .gitignore                  # Ignored files for Git
+├── index.html                  # Main HTML template
+├── package.json                # Project dependencies and scripts
+├── vite.config.js              # Vite configuration
+└── yarn.lock                   # Lockfile for Yarn dependencies
+
+```
+
+
 ## Installation for the Backend
 
 To get started, follow these steps:

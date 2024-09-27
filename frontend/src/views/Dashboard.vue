@@ -17,10 +17,27 @@
       </div>
     </div>
 
-    <!-- Display files from Firebase -->
-    <div v-else class="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-      <FileCard v-for="file in files" :key="file.name" :file="file" :loading="file.loading" />
+     <!-- Display face cards in a responsive grid layout -->
+     <div v-if="faceData != null"  class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-6">
+    
+      <FaceCard
+        v-for="(faceImage, index) in faceData.face_images"
+        :key="index"
+        :faceImage="faceImage"
+        :faceId="index"
+        @relatedImages="handleRelatedImages" 
+      />
+      </div>
+      <div v-else class="">No Faces Detected</div>
+
+      <!-- Display related images when available -->
+    <div v-if="relatedImages.length" class="mt-6">
+        <h2 class="text-xl font-bold dark:text-white">Related Images</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-4">
+          <img v-for="(image, index) in relatedImages" :key="index" :src="'http://127.0.0.1:5000/' + image" class="w-full h-auto object-cover" />
+        </div>
     </div>
+
   </div>
 </template>
 
@@ -31,87 +48,42 @@ import moment from 'moment';
 import { storage } from '../services/firebase';
 import { ref as storageRef, getDownloadURL, uploadBytesResumable, listAll } from 'firebase/storage';
 import FileCard from '../components/FileCard.vue';
+import FaceCard from '../components/FaceCard.vue';
+import axios  from 'axios';
 
 const files = ref([]); // Reactive list to store uploaded files
 const selectedFiles = ref([]); // Track files selected by the user for upload
 const isLoading = ref(true); // Loading state
+const faceData = ref(null); // Variable to store face data from the API
+const relatedImages = ref([]);  // To store related images from FaceCard
+
+// Function to fetch face data
+const loadFaceData = async () => {
+  try {
+    const response = await axios.get('http://127.0.0.1:5000/faces/process');
+    faceData.value = response.data; // Store the response in faceData
+    isLoading.value = false;
+    console.log('Face data:', faceData.value); // Log the data to the console
+  } catch (error) {
+    console.error('Error fetching face data:', error);
+  }
+};
 
 // Function to load files from Firebase Storage
-const loadFiles = async () => {
-  const folderRef = storageRef(storage, 'uploads');
-  try {
-    const result = await listAll(folderRef);
-    const filePromises = result.items.map(async (fileRef) => {
-      const url = await getDownloadURL(fileRef);
-      return {
-        name: fileRef.name,
-        url: url,
-        loading: false,
-        icon: url
-      };
-    });
-    files.value = await Promise.all(filePromises);
-  } catch (error) {
-    console.error('Error loading files:', error);
-  } finally {
-    isLoading.value = false;
-  }
+
+
+// Function to handle the related images received from FaceCard
+const handleRelatedImages = (data) => {
+  console.log('Received related images:', data);
+  relatedImages.value = data.related_images;
 };
 
-// Function to upload files to Firebase
-const uploadToFirebase = async (uploadedFiles) => {
-  for (const file of uploadedFiles) {
-    console.log(`Uploading file: ${file.name}`);
-    const fileRef = storageRef(storage, `uploads/${file.name}`);
-    const uploadTask = uploadBytesResumable(fileRef, file);
-
-    // Add the file to the list with a loading state
-    files.value.push({
-      name: file.name,
-      url: '',
-      loading: true,
-      progress: 0,
-      icon: URL.createObjectURL(file)
-    });
-
-    // Track upload progress and update UI
-    uploadTask.on(
-      'state_changed',
-      (snapshot) => {
-        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        const fileIndex = files.value.findIndex(f => f.name === file.name);
-        if (fileIndex !== -1) {
-          files.value[fileIndex].progress = progress;
-        }
-      },
-      (error) => console.error('Error uploading file to Firebase:', error),
-      async () => {
-        try {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          const fileIndex = files.value.findIndex(f => f.name === file.name);
-          if (fileIndex !== -1) {
-            files.value[fileIndex] = {
-              ...files.value[fileIndex],
-              url: downloadURL,
-              loading: false,
-              icon: downloadURL
-            };
-          }
-          // Log the download URL to the console
-          console.log(`File uploaded successfully: ${downloadURL}`);
-        } catch (error) {
-          console.error('Error getting download URL:', error);
-        }
-      }
-    );
-  }
-};
 
 
 // Initialize Dropzone
 onMounted(() => {
-  loadFiles();
-
+ 
+  loadFaceData();  // Fetch the face data
   Dropzone.autoDiscover = false;
   const dropzone = new Dropzone("#myDropzone", {
     url: "http://127.0.0.1:5000/serve_images", // Flask endpoint URL
@@ -247,3 +219,4 @@ onMounted(() => {
   height: auto;
 }
 </style>
+

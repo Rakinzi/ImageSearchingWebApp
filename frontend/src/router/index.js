@@ -13,7 +13,7 @@ const routes = [
     path: '/',
     name: 'Dashboard',
     component: Dashboard,
-    meta: { requiresAuth: true }
+    // meta: { requiresAuth: true }
   },
   {
     path: '/files',
