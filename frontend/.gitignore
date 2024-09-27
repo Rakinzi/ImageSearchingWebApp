@@ -6,7 +6,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-backend/venv/Lib/site-packages/
+/backend/venv/Lib/site-packages/
 /frontend/node_modules
 node_modules
 dist
