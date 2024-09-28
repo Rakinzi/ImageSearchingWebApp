@@ -7,32 +7,40 @@ import Login from '../views/Login.vue';
 import Register from '../views/Register.vue';
 import RelatedFaces from '../views/RelatedFaces.vue';
 import { auth } from '../services/firebase'; // Import Firebase Auth instance
+import Images from '../views/Images.vue';
 
 
 const routes = [
-  {
-    path: '/',
-    name: 'Dashboard',
-    component: Dashboard,
-    // meta: { requiresAuth: true }
-  },
-  {
-    path: '/people',
-    name: 'People',
-    component: People,
-    // meta: { requiresAuth: true }
-  },
-  {
-    path: '/faces/:faceId',
-    name: 'RelatedFaces',
-    component: RelatedFaces
-  },
   {
     path: '/upload',
     name: 'Upload',
     component: Upload,
     meta: { requiresAuth: true }
   },
+  {
+    path: '/',
+    name: 'Dashboard',
+    component: Dashboard,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/images',
+    name: 'Images',
+    component: Images,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/people',
+    name: 'People',
+    component: People,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/faces/:faceId',
+    name: 'RelatedFaces',
+    component: RelatedFaces
+  },
+
   { path: '/login', name: 'Login', component: Login, meta: { layout: 'auth' } },
   { path: '/register', name: 'Register', component: Register, meta: { layout: 'auth' } },
 ];

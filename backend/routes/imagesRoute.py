@@ -60,6 +60,15 @@ def serve_images():
     # If request method is not POST, return an error response
     return jsonify({'status': False, 'message': 'Invalid Request'}), 400
 
+@images_blueprint.route('/get_images', methods=['GET'])
+def get_images():
+    if request.method == 'GET':
+        message, images, status = ImageProcessor().get_inserted_images()
+        http_status = True if status == 1 else False
+        http_status_code = 200 if status == 1 else 400
+        return jsonify({'images': images, "status": http_status, 'message': message}), http_status_code
+
+
 # Route for handling image search functionality
 @images_blueprint.route('/search_images', methods=['POST'])
 def search_for_images():

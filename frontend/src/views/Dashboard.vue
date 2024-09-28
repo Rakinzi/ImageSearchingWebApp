@@ -11,32 +11,14 @@
     </form>
 
     <!-- Loading Animation for Full Page -->
-    <div v-if="isLoading" class="flex items-center justify-center min-h-screen">
+    <!-- <div v-if="isLoading" class="flex items-center justify-center min-h-screen">
       <div
         class="w-16 h-16 border-4 border-t-4 border-gray-500 border-opacity-50 border-t-transparent rounded-full animate-spin">
       </div>
-    </div>
+    </div> -->
 
      <!-- Display face cards in a responsive grid layout -->
-     <div v-if="faceData != null"  class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-6">
-    
-      <FaceCard
-        v-for="(faceImage, index) in faceData.face_images"
-        :key="index"
-        :faceImage="faceImage"
-        :faceId="index"
-        @relatedImages="handleRelatedImages" 
-      />
-      </div>
-      <div v-else class="">No Faces Detected</div>
-
-      <!-- Display related images when available -->
-    <div v-if="relatedImages.length" class="mt-6">
-        <h2 class="text-xl font-bold dark:text-white">Related Images</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-4">
-          <img v-for="(image, index) in relatedImages" :key="index" :src="'http://127.0.0.1:5000/' + image" class="w-full h-auto object-cover" />
-        </div>
-    </div>
+   
 
   </div>
 </template>
@@ -45,46 +27,17 @@
 import { ref, onMounted } from 'vue';
 import Dropzone from 'dropzone';
 import moment from 'moment';
-import FileCard from '../components/FileCard.vue';
-import FaceCard from '../components/FaceCard.vue';
-import axios  from 'axios';
+
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
 
 const files = ref([]); // Reactive list to store uploaded files
 const selectedFiles = ref([]); // Track files selected by the user for upload
-const isLoading = ref(true); // Loading state
-const faceData = ref(null); // Variable to store face data from the API
-const relatedImages = ref([]);  // To store related images from FaceCard
-
-// Function to fetch face data
-const loadFaceData = async () => {
-  try {
-    const response = await axios.get('http://127.0.0.1:5000/faces/process');
-    faceData.value = response.data; // Store the response in faceData
-    isLoading.value = false;
-    console.log('Face data:', faceData.value); // Log the data to the console
-  } catch (error) {
-    console.error('Error fetching face data:', error);
-  }
-};
-
-// Function to load files from Firebase Storage
 
 
-// Function to handle the related images received from FaceCard
-const handleRelatedImages = (data) => {
-  console.log('Received related images:', data);
-  relatedImages.value = data.related_images;
-};
-
-
-
-// Initialize Dropzone
 onMounted(() => {
-  loadFaceData();  // Fetch the initial face data
-
+ 
   Dropzone.autoDiscover = false;
   const dropzone = new Dropzone("#myDropzone", {
     url: "http://127.0.0.1:5000/serve_images", // Flask endpoint URL

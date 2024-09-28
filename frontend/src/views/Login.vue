@@ -50,12 +50,16 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { auth } from '../services/firebase'; 
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import { useFaceStore } from '../stores/faceStore'; // Import Pinia store
 
 const email = ref('');
 const password = ref('');
 const errorMessage = ref('');
 const loading = ref(false); // Loading state for the spinner
 const router = useRouter();
+
+// Get Pinia store instance
+const faceStore = useFaceStore();
 
 // Map Firebase errors to user-friendly messages
 const getFriendlyErrorMessage = (errorCode) => {
@@ -80,6 +84,8 @@ const login = async () => {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email.value, password.value);
     console.log("User Logged In:", userCredential.user);
+     // Load face data after login
+    await faceStore.loadFaceData();
     router.push('/');
   } catch (error) {
     errorMessage.value = getFriendlyErrorMessage(error.code);
@@ -88,3 +94,4 @@ const login = async () => {
   }
 };
 </script>
+add face store loadFaceData after login

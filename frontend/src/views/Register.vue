@@ -60,6 +60,7 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { auth } from '../services/firebase'; 
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { useFaceStore } from '../stores/faceStore'; // Import Pinia store
 
 const email = ref('');
 const password = ref('');
@@ -67,6 +68,9 @@ const confirmPassword = ref('');
 const errorMessage = ref('');
 const loading = ref(false); // Loading state for the spinner
 const router = useRouter();
+
+// Get Pinia store instance
+const faceStore = useFaceStore();
 
 const register = async () => {
   errorMessage.value = '';
@@ -82,6 +86,7 @@ const register = async () => {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email.value, password.value);
     console.log("User Registered:", userCredential.user);
+    await faceStore.loadFaceData();
     router.push('/'); // Redirect after successful registration
   } catch (error) {
     
