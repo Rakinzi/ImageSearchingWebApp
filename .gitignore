@@ -4,10 +4,7 @@ backend/venv/
 # Ignore the specific .joblib file
 backend/controller/*.joblib
 backend/.idea/
-backend/static/uploads/images/*.png
-backend/static/uploads/images/*.jpg
-backend/static/uploads/images/*.jpeg
-backend/static/uploads/images/*.gif
+backend/static/uploads/images/
 venv/
 
 !static/uploads/images/
