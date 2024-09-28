@@ -45,11 +45,12 @@
 import { ref, onMounted } from 'vue';
 import Dropzone from 'dropzone';
 import moment from 'moment';
-import { storage } from '../services/firebase';
-import { ref as storageRef, getDownloadURL, uploadBytesResumable, listAll } from 'firebase/storage';
 import FileCard from '../components/FileCard.vue';
 import FaceCard from '../components/FaceCard.vue';
 import axios  from 'axios';
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
 
 const files = ref([]); // Reactive list to store uploaded files
 const selectedFiles = ref([]); // Track files selected by the user for upload
@@ -82,13 +83,13 @@ const handleRelatedImages = (data) => {
 
 // Initialize Dropzone
 onMounted(() => {
- 
-  loadFaceData();  // Fetch the face data
+  loadFaceData();  // Fetch the initial face data
+
   Dropzone.autoDiscover = false;
   const dropzone = new Dropzone("#myDropzone", {
     url: "http://127.0.0.1:5000/serve_images", // Flask endpoint URL
     method: "POST",
-    maxFilesize: 5, // Max file size in MB
+    maxFilesize: 50, // Max file size in MB
     acceptedFiles: 'image/*', // Accept only image files
     autoProcessQueue: true,
     uploadMultiple: true,
@@ -117,14 +118,21 @@ onMounted(() => {
         // Append the image details array as a JSON string
         formData.append('image_details', JSON.stringify(imageDetailsArray));
       });
+      
+      // Success event for multiple files
       this.on('successmultiple', (files, response) => {
         if (response.status) {
-          uploadToFirebase(files);
+          // Wait for 5 seconds before reloading face data
+          setTimeout(() => {
+            // Reload the component
+            router.push('/');
+            console.log("5 seconds to reload face data");
+          }, 5000); // 5000ms = 5 seconds // 5000ms = 5 seconds
         } else {
           console.error('Error uploading files to server:', response.message);
         }
-          
       });
+
       this.on('errormultiple', (files, errorMessage) => {
         console.error('Error uploading files:', errorMessage);
       });
@@ -138,6 +146,7 @@ onMounted(() => {
     `
   });
 });
+
 </script>
 
 <style scoped>

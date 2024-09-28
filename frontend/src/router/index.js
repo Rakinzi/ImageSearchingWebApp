@@ -1,10 +1,11 @@
 // src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router';
 import Dashboard from '../views/Dashboard.vue';
-import Files from '../views/Files.vue';
+import People from '../views/People.vue';
 import Upload from '../views/Upload.vue';
 import Login from '../views/Login.vue';
 import Register from '../views/Register.vue';
+import RelatedFaces from '../views/RelatedFaces.vue';
 import { auth } from '../services/firebase'; // Import Firebase Auth instance
 
 
@@ -16,10 +17,15 @@ const routes = [
     // meta: { requiresAuth: true }
   },
   {
-    path: '/files',
-    name: 'Files',
-    component: Files,
-    meta: { requiresAuth: true }
+    path: '/people',
+    name: 'People',
+    component: People,
+    // meta: { requiresAuth: true }
+  },
+  {
+    path: '/faces/:faceId',
+    name: 'RelatedFaces',
+    component: RelatedFaces
   },
   {
     path: '/upload',
