@@ -9,7 +9,7 @@ import os
 app = Flask(__name__)
 
 
-CORS(app, origins=["http://localhost:5173"])
+CORS(app)
 
 app.config.update(
     broker_url='amqp://guest:guest@localhost:5672//',
@@ -20,7 +20,7 @@ app.config.update(
 
 celery = make_celery(app)
 
-app.register_blueprint(images_blueprint)
+app.register_blueprint(images_blueprint, url_prefix='/images')
 app.register_blueprint(faces_blueprint, url_prefix='/faces')
 
 

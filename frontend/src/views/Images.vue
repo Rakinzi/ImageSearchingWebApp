@@ -30,7 +30,7 @@ const fetchImages = async (query) => {
   loading.value = true; // Set loading to true when starting the request
   try {
     const response = await axios.post(
-      'http://127.0.0.1:5000/search_images', 
+      'http://127.0.0.1:5000/images/search_images', 
       { query }, // Send query as JSON payload
       {
         headers: {

@@ -4,7 +4,10 @@
 # Ignore the specific .joblib file
 /backend/controller/*.joblib
 /backend/.idea/
-/backend/static/uploads/images/
+/backend/static/**/*.jpg
+/backend/static/**/*.jpeg
+/backend/static/**/*.png
+/backend/static/**/*.gif
 venv/
 
 !static/uploads/images/

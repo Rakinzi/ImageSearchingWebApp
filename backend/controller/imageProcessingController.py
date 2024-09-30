@@ -1,5 +1,6 @@
 import os
 from controller.searchController import ImageSearcher
+from PIL.ExifTags import TAGS
 
 
 class ImageProcessor(ImageSearcher):
@@ -11,7 +12,6 @@ class ImageProcessor(ImageSearcher):
         self.data = data
 
     def process_images(self):
-        print(self.image_details)
         if not self.file_data or not self.image_details:
             message = "This is not an image"
             images = None
@@ -31,6 +31,7 @@ class ImageProcessor(ImageSearcher):
             image_data=self.file_data,
             image_format=image_format,
             image_date=image_date,
+            image_details = self.image_details
         )
 
         if processor != 0:
@@ -54,3 +55,11 @@ class ImageProcessor(ImageSearcher):
             message = "The key query is not found in your data"
             images = None
             return message, images, 0
+
+    def get_inserted_images(self):
+        message = "Images have been returned"
+        variables = super().get_inserted_images()
+        print(variables)
+        images = variables['ids']
+        normalized_images = [os.path.normpath(image) for image in images]
+        return message, normalized_images, 1

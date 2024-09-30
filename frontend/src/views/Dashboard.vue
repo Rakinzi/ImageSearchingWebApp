@@ -40,7 +40,7 @@ onMounted(() => {
  
   Dropzone.autoDiscover = false;
   const dropzone = new Dropzone("#myDropzone", {
-    url: "http://127.0.0.1:5000/serve_images", // Flask endpoint URL
+    url: "http://127.0.0.1:5000/images/serve_images", // Flask endpoint URL
     method: "POST",
     maxFilesize: 50, // Max file size in MB
     acceptedFiles: 'image/*', // Accept only image files
