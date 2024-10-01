@@ -35,7 +35,7 @@ const goToRelatedImages = (faceId) => {
 };
 
 // Fetch face data using Pinia when the component mounts
-onMounted(() => {
-  loadFaceData();
-});
+// onMounted(() => {
+//   loadFaceData();
+// });
 </script>

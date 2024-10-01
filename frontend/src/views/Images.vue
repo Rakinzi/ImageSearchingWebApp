@@ -1,7 +1,9 @@
 <script setup>
 import { ref } from 'vue';
 import axios from 'axios'; // Import axios for making API calls
+import { useFaceStore } from '../stores/faceStore'; // Import Pinia store
 
+const faceStore = useFaceStore(); // Get the Pinia store
 // Reactive variables for search query, loading, and suggestions
 const searchQuery = ref('');
 const showDropdown = ref(false);
@@ -111,6 +113,14 @@ const hideDropdown = () => {
       <p>No images found for "{{ searchQuery }}"</p>
     </div>
   </div>
+
+  
+  <div  class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div  v-for="(image, index) in faceStore.faceData.all_images" :key="index">
+            <img  :src="'http://127.0.0.1:5000/' + image" class="h-auto max-w-sm rounded-lg"  alt="">
+        </div>
+    </div>
+
 </template>
 
 <style scoped>

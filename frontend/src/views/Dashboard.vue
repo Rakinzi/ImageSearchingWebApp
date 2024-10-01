@@ -11,15 +11,24 @@
     </form>
 
     <!-- Loading Animation for Full Page -->
-    <!-- <div v-if="isLoading" class="flex items-center justify-center min-h-screen">
+    <div v-if="faceStore.isLoading" class="flex items-center justify-center min-h-screen">
       <div
         class="w-16 h-16 border-4 border-t-4 border-gray-500 border-opacity-50 border-t-transparent rounded-full animate-spin">
       </div>
-    </div> -->
-
-     <!-- Display face cards in a responsive grid layout -->
-   
-
+    </div>
+     <!-- Image Gallery -->
+     <div v-else class="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div v-for="(image, index) in faceStore.faceData.all_images" :key="index" class="relative">
+        <img
+          :src="'http://127.0.0.1:5000/' + image"
+          :alt="'Image ' + (index + 1)"
+          class="w-full h-48 object-cover rounded-lg shadow-md transition-transform transform hover:scale-105"
+        />
+        <div class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+          Image {{ index + 1 }}
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -27,17 +36,14 @@
 import { ref, onMounted } from 'vue';
 import Dropzone from 'dropzone';
 import moment from 'moment';
-
+import { useFaceStore } from '../stores/faceStore'; // Import Pinia store
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
-
-const files = ref([]); // Reactive list to store uploaded files
+const faceStore = useFaceStore();
 const selectedFiles = ref([]); // Track files selected by the user for upload
 
-
 onMounted(() => {
- 
   Dropzone.autoDiscover = false;
   const dropzone = new Dropzone("#myDropzone", {
     url: "http://127.0.0.1:5000/images/serve_images", // Flask endpoint URL
@@ -53,6 +59,7 @@ onMounted(() => {
       this.on('addedfiles', (files) => {
         selectedFiles.value.push(...files);
       });
+
       this.on('sendingmultiple', (files, xhr, formData) => {
         let imageDetailsArray = [];
         files.forEach(file => {
@@ -71,20 +78,28 @@ onMounted(() => {
         // Append the image details array as a JSON string
         formData.append('image_details', JSON.stringify(imageDetailsArray));
       });
-      
-      // Success event for multiple files
-      this.on('successmultiple', (files, response) => {
+
+        // Success event for multiple files
+      this.on('successmultiple', async (files, response) => {
         if (response.status) {
-          // Wait for 5 seconds before reloading face data
-          setTimeout(() => {
-            // Reload the component
-            router.push('/');
-            console.log("5 seconds to reload face data");
-          }, 5000); // 5000ms = 5 seconds // 5000ms = 5 seconds
+          try {
+            // Clear face data
+            faceStore.faceData = null;
+            console.log(faceStore.faceData)
+            // Load face data from the store
+            await faceStore.loadFaceData();
+            console.log(faceStore.faceData)
+            // Redirect to the '/people' route after loading the data
+            // router.push('/people');
+            console.log("Face data loaded successfully, redirected to /people");
+          } catch (error) {
+            console.error('Error loading face data:', error);
+          }
         } else {
           console.error('Error uploading files to server:', response.message);
         }
       });
+
 
       this.on('errormultiple', (files, errorMessage) => {
         console.error('Error uploading files:', errorMessage);
@@ -99,7 +114,6 @@ onMounted(() => {
     `
   });
 });
-
 </script>
 
 <style scoped>
