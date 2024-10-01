@@ -80,14 +80,14 @@ onMounted(() => {
       });
 
         // Success event for multiple files
-      this.on('successmultiple', async (files, response) => {
+      this.on('successmultiple', (files, response) => {
         if (response.status) {
           try {
             // Clear face data
             faceStore.faceData = null;
             console.log(faceStore.faceData)
             // Load face data from the store
-            await faceStore.loadFaceData();
+            faceStore.loadFaceData();
             console.log(faceStore.faceData)
             // Redirect to the '/people' route after loading the data
             // router.push('/people');

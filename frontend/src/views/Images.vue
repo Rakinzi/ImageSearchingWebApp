@@ -1,31 +1,11 @@
 <script setup>
 import { ref } from 'vue';
 import axios from 'axios'; // Import axios for making API calls
-import { useFaceStore } from '../stores/faceStore'; // Import Pinia store
+import { useFaceStore } from '../stores/faceStore';  // Import Pinia store
 
-const faceStore = useFaceStore(); // Get the Pinia store
-// Reactive variables for search query, loading, and suggestions
-const searchQuery = ref('');
-const showDropdown = ref(false);
-const images = ref([]); // To hold the images returned by the backend
-const loading = ref(false); // Loading state to show/hide the spinner
+const faceStore = useFaceStore(); // Use the Pinia store
 
-// Sample search suggestions
-const suggestions = ref(['Mountains', 'Forests', 'Rivers', 'Deserts', 'Oceans', 'Waterfalls', 'Lakes', 'Plains', 'Rainforests', 'Beaches']);
-
-// Filtered suggestions based on search query
-const filteredSuggestions = ref([]);
-
-// Filter suggestions when typing in the search bar
-const filterSuggestions = () => {
-  if (searchQuery.value) {
-    filteredSuggestions.value = suggestions.value.filter(suggestion =>
-      suggestion.toLowerCase().includes(searchQuery.value.toLowerCase())
-    );
-  } else {
-    filteredSuggestions.value = [];
-  }
-};
+const { isLoading, faceData, loadFaceData } = faceStore; // Destructure the necessary store values
 
 // Fetch images based on search query using POST request
 const fetchImages = async (query) => {
@@ -50,20 +30,6 @@ const fetchImages = async (query) => {
     loading.value = false; // Set loading to false when request completes
   }
 };
-
-// Select a suggestion from the dropdown and fetch images
-const selectSuggestion = (suggestion) => {
-  searchQuery.value = suggestion;
-  showDropdown.value = false; // Close dropdown after selection
-  fetchImages(suggestion); // Fetch images for the selected suggestion
-};
-
-// Hide dropdown after losing focus (with delay to allow click event)
-const hideDropdown = () => {
-  setTimeout(() => {
-    showDropdown.value = false;
-  }, 100);
-};
 </script>
 
 <template>
@@ -79,48 +45,17 @@ const hideDropdown = () => {
         @focus="showDropdown = true"
         @blur="hideDropdown"
       />
-
-      <!-- Search Suggestions Dropdown -->
-      <div v-if="showDropdown && filteredSuggestions.length" class="absolute bg-white border border-gray-300 rounded-lg mt-1 w-full shadow-lg">
-        <div
-          v-for="(suggestion, index) in filteredSuggestions"
-          :key="index"
-          class="p-2 hover:bg-gray-100 cursor-pointer"
-          @mousedown.prevent="selectSuggestion(suggestion)"
-        >
-          {{ suggestion }}
-        </div>
       </div>
-    </div>
-
-    <!-- Loading Spinner -->
-    <div v-if="loading" class="flex justify-center items-center">
-      <div class="spinner"></div> <!-- Spinner element -->
-    </div>
-
-    <!-- Nature Images Grid -->
-    <div v-if="images.length && !loading" class="grid grid-cols-4 gap-1">
-      <div v-for="(image, index) in images" :key="index">
-        <img
-          :src="image"
-          alt="Nature Image"
-          class="rounded-lg"
-        />
+      <div v-if="isLoading" class="flex items-center justify-center min-h-screen">
+        <div class="w-16 h-16 border-4 border-t-4 border-gray-500 border-opacity-50 border-t-transparent rounded-full animate-spin"></div>
       </div>
-    </div>
-    
-    <div v-else-if="!loading">
-      <p>No images found for "{{ searchQuery }}"</p>
-    </div>
-  </div>
 
-  
-  <div  class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div  v-for="(image, index) in faceStore.faceData.all_images" :key="index">
+    <div v-if="!isLoading"  class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div  v-for="(image, index) in faceData.all_images" :key="index">
             <img  :src="'http://127.0.0.1:5000/' + image" class="h-auto max-w-sm rounded-lg"  alt="">
         </div>
     </div>
-
+</div>
 </template>
 
 <style scoped>
