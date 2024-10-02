@@ -6,8 +6,7 @@ import numpy as np
 import torch
 from deepface import DeepFace
 from facenet_pytorch import MTCNN
-from sklearn.metrics.pairwise import cosine_similarity
-from chromadb import PersistentClient
+import sqlite3
 
 
 class FaceProcessor:
@@ -16,15 +15,40 @@ class FaceProcessor:
         self.images_dir = images_dir
         self.faces_dir = faces_dir
         self.processed_data_file = processed_data_file
-        self.chroma_client = PersistentClient("./chroma_db")
-        self.collection = self.chroma_client.get_or_create_collection(name="face_collection",
-                                                                      metadata={"hnsw:space": "cosine"})
 
         os.makedirs(self.images_dir, exist_ok=True)
         os.makedirs(self.faces_dir, exist_ok=True)
 
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.mtcnn = MTCNN(keep_all=True, device=self.device)
+
+        self.create_faces_table()
+
+    def get_db_connection(self):
+        """Create a new database connection."""
+        return sqlite3.connect("faces_database.db")
+
+    def create_faces_table(self):
+        with self.get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS faces (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    image_id TEXT UNIQUE,
+                    images_linked TEXT,
+                    image_tagging TEXT DEFAULT NULL
+                )
+            ''')
+            conn.commit()
+
+    def insert_face_data(self, image_id: str, images_linked: str):
+        with self.get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT OR IGNORE INTO faces (image_id, images_linked)
+                VALUES (?, ?)
+            ''', (image_id, images_linked))
+            conn.commit()
 
     def detect_faces(self, image_rgb):
         boxes, probs = self.mtcnn.detect(image_rgb)
@@ -64,6 +88,7 @@ class FaceProcessor:
     def process_faces(self) -> Tuple[List[str], List[str]]:
         face_images, all_images, face_to_original_image_map = self.load_processed_data()
         new_faces = []
+        processed_faces = set()  # Initialize as an empty set
 
         # Process only new images
         for filename in os.listdir(self.images_dir):
@@ -94,59 +119,127 @@ class FaceProcessor:
                             cv2.imwrite(face_path, face)
                             print(f"Saved new face at {face_path}")
 
-                            new_faces.append(face_path)
-                            face_to_original_image_map[face_path] = [image_path]
+                            # Extract embedding for the new face
+                            embedding = self.extract_face_embedding(face_path)
+                            if embedding is not None:
+                                new_faces.append(face_path)
+                                face_to_original_image_map[face_path] = [image_path]
+                            else:
+                                print("This is not a face")
+                                os.remove(face_path)
                     else:
                         print("No faces detected in new image.")
                     all_images.append(image_path)
                 except Exception as e:
                     print(f"Error processing {filename}: {str(e)}")
 
-        # Process only new faces for duplicates
+        print("New faces detected:", new_faces)
         unique_new_faces = []
+        faces_to_remove = set()
+        face_images = new_faces if len(face_images) == 0 else face_images
+
+        # Compare new faces against existing faces only
         for new_face in new_faces:
+            if new_face in processed_faces:
+                print(f"Skipping already processed new face: {new_face}")
+                continue
+
+            processed_faces.add(new_face)  # Mark new face as processed
+            print(f"Checking new face: {new_face}")
             is_unique = True
+
             for existing_face in face_images:
+                if new_face == existing_face:
+                    print(f"Skipping the image is the same {new_face}")
+                    continue
+
+                if existing_face in faces_to_remove:
+                    print(f"Skipping existing face marked for removal: {existing_face}")
+                    continue
+
+                if existing_face in processed_faces:
+                    print(f"Skipping this as it has been processed before")
+                    continue
+
+                print(f"Comparing {new_face} with {existing_face}")
                 try:
-                    verification = DeepFace.verify(img1_path=new_face, img2_path=existing_face,
-                                                   enforce_detection=False)
+                    verification = DeepFace.verify(
+                        img1_path=new_face,
+                        img2_path=existing_face,
+                        enforce_detection=False,
+                        detector_backend='dlib',
+                        model_name='Facenet512',
+                        threshold=0.35
+                    )
+                    print(verification)
+
                     if verification['verified']:
                         is_unique = False
-                        face_to_original_image_map[existing_face].extend(face_to_original_image_map[new_face])
-                        os.remove(new_face)
-                        break
-                except Exception as ve:
-                    print(f"Error during verification of {new_face} and {existing_face}: {str(ve)}")
+                        print(f"Duplicate found, marking existing face for removal: {existing_face}")
 
+                        # Update the map for existing_face
+                        face_to_original_image_map[new_face].extend(face_to_original_image_map[existing_face])
+                        face_to_original_image_map[new_face] = list(
+                            set(face_to_original_image_map[new_face]))  # Ensure uniqueness
+
+                        print(f" for face {new_face} these are the linked images {face_to_original_image_map[new_face]}")
+                        # Mark existing_face for removal
+                        faces_to_remove.add(existing_face)
+                        os.remove(existing_face)  # Remove existing face from filesystem
+
+                except Exception as ve:
+                    print(f"Error verifying {new_face} and {existing_face}: {ve}")
+
+            # Add new_face to unique_new_faces if it wasn't marked for removal
             if is_unique:
                 unique_new_faces.append(new_face)
 
-        # Update ChromaDB with unique new faces
-        for face_path in unique_new_faces:
-            embedding = self.extract_face_embedding(face_path)
-            if embedding is not None:
+        # Remove marked faces from the face_images list and delete the files
+        for face in faces_to_remove:
+            if face in face_images:
+                face_images.remove(face)
+
+        print(f"Unique new faces: {unique_new_faces}")
+
+        # Ensure face_images only contains files that exist
+        face_images = [face for face in face_images if os.path.exists(face)]
+
+        face_images = list(set(face_images))
+        print(f"Face images after processing {face_images}")
+        # Update SQLite with unique new faces
+        existing_faces = []
+        for face_path in face_images:
+            if os.path.exists(face_path):  # Check if the file exists
                 original_images = face_to_original_image_map[face_path]
-                self.collection.upsert(
-                    documents=original_images,
-                    embeddings=[embedding.tolist()],
-                    metadatas=[{"face_id": str(len(face_images) + unique_new_faces.index(face_path)),
-                                "face_image": face_path}],
-                    ids=[f"face_{len(face_images) + unique_new_faces.index(face_path)}"]
-                )
+                images_linked = ', '.join(original_images)  # Assuming images_linked should be a comma-separated string
+
+                self.insert_face_data(face_path, images_linked)
+                print(f"Inserted {face_path}")
+
+                existing_faces.append(face_path)  # Add only existing faces to the list
+            else:
+                print(f"File not found for {face_path}, skipping database insertion and processing.")
 
         # Update face_images list and save processed data
-        face_images.extend(unique_new_faces)
+        face_images.extend(existing_faces)
+        face_images = list(set(face_images))  # Ensure uniqueness
         self.save_processed_data(face_images, all_images, face_to_original_image_map)
+        print(face_images)
 
         return face_images, all_images
 
     def get_related_images(self, face_id: str) -> Tuple[List[str], str]:
-        results = self.collection.query(
-            query_embeddings=[self.collection.get(ids=[f"face_{face_id}"], include=['embeddings'])['embeddings'][0]],
-            n_results=10,
-            include=['documents', 'metadatas']
-        )
-        related_images = results["documents"][0]
-        face_image = results["metadatas"][0][0]["face_image"]
-        return related_images, face_image
+        with self.get_db_connection() as conn:
+            cursor = conn.cursor()
+            face_filename = f'detected_face_{face_id}.jpg'
+            face_path = os.path.join(self.faces_dir, face_filename)
+            print(face_path)
+            cursor.execute('SELECT images_linked FROM faces WHERE image_id = ?', (face_path,))
+            result = cursor.fetchone()
+            if result:
+                images_linked = result[0].split(', ')  # Assuming images are stored as a comma-separated string
+                print(images_linked)
+                return images_linked, face_id
+            return [], face_id  # Return empty list if no images linked
+
 

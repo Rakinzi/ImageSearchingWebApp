@@ -32,5 +32,4 @@ def get_related_images(face_id):
 # Route to serve an image file given its path
 @faces_blueprint.route('/image/<path:image_path>')
 def serve_image(image_path):
-    # Use Flask's send_file method to serve the image from the given path
     return send_file(image_path)
