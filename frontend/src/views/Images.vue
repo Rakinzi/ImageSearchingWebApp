@@ -50,7 +50,7 @@ const fetchImages = async (query) => {
         <div class="w-16 h-16 border-4 border-t-4 border-gray-500 border-opacity-50 border-t-transparent rounded-full animate-spin"></div>
       </div>
 
-    <div v-if="!isLoading"  class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div v-if="!isLoading"  class="grid grid-cols-1 md:grid-cols-2 gap-4 lg:grid-cols-3">
         <div  v-for="(image, index) in faceData.all_images" :key="index">
             <img  :src="'http://127.0.0.1:5000/' + image" class="h-auto max-w-sm rounded-lg"  alt="">
         </div>

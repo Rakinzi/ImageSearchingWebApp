@@ -30,12 +30,16 @@ const faceStore = useFaceStore(); // Use the Pinia store
 
 const { isLoading, faceData, loadFaceData } = faceStore; // Destructure the necessary store values
 
+const ReloadFaceData = () => {
+  loadFaceData();
+  console.log("loadFaceData");
+};
 const goToRelatedImages = (faceId) => {
   router.push(`/faces/${faceId}`);
 };
 
 // Fetch face data using Pinia when the component mounts
-// onMounted(() => {
-//   loadFaceData();
-// });
+onMounted(() => {
+  ReloadFaceData();
+});
 </script>

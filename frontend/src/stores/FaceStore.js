@@ -10,7 +10,7 @@ export const useFaceStore = defineStore('faceStore', {
 
   actions: {
     async loadFaceData() {
-      if (!this.faceData) {  // Check if the data is already loaded
+        // Check if the data is already loaded
         console.log('Loading face data...');
         this.isLoading = true;
         this.faceData = null;
@@ -23,7 +23,7 @@ export const useFaceStore = defineStore('faceStore', {
         } finally {
           this.isLoading = false;
         }
-      }
+      
     }
     
   },

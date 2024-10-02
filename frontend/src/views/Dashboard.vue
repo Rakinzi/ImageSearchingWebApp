@@ -89,6 +89,7 @@ onMounted(() => {
             // Load face data from the store
             faceStore.loadFaceData();
             console.log(faceStore.faceData)
+
             // Redirect to the '/people' route after loading the data
             // router.push('/people');
             console.log("Face data loaded successfully, redirected to /people");

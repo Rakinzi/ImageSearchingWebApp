@@ -3,11 +3,11 @@
     <!-- Left side (Logo + Menu Button) -->
     <div class="flex items-center space-x-2">
       <button class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
-        <svg class="w-6 h-6 text-gray-800 dark:text-white" fill="currentColor" viewBox="0 0 24 24">
+        <svg class="w-6 h-6 text-gwhite dark:text-gray-900800" fill="currentColor" viewBox="0 0 24 24">
           <path d="M4 6h16M4 12h16m-7 6h7"></path>
         </svg>
       </button>
-      <span class="text-lg font-semibold dark:text-white">G Storage</span>
+      <span class="text-lg font-semibold dark:text-white">Storage X</span>
     </div>
 
     <!-- Middle (Search Bar) -->
@@ -137,4 +137,3 @@ const hideDropdown = () => {
 <style scoped>
 /* Scoped styles can be added here */
 </style>
-
