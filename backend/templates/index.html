@@ -77,61 +77,68 @@
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        // Fetch the faces when the page loads
-        fetch('/faces/process')
-            .then(response => response.json())
-            .then(data => {
-                const facesContainer = document.getElementById('faces-container');
-                data.face_images.forEach((facePath, index) => {
+  document.addEventListener('DOMContentLoaded', function () {
+    // Fetch the faces when the page loads
+    fetch('/faces/process')
+        .then(response => response.json())
+        .then(data => {
+            const facesContainer = document.getElementById('faces-container');
+            data.face_images.forEach((facePath) => {
+                // Extract the number from the filename, e.g., "detected_face_2.jpg"
+                const faceIdMatch = facePath.match(/detected_face_(\d+)\.jpg/);
+                const faceId = faceIdMatch ? faceIdMatch[1] : null;  // Get the number
+
+                if (faceId) {
                     const faceElement = document.createElement('div');
                     faceElement.classList.add('face');
-                    faceElement.setAttribute('data-face-id', index);
+                    faceElement.setAttribute('data-face-id', faceId);  // Use the face number
 
                     const img = document.createElement('img');
                     img.src = `/faces/image/${facePath}`;
                     faceElement.appendChild(img);
 
                     faceElement.addEventListener('click', function () {
-                        loadRelatedImages(index);
+                        loadRelatedImages(faceId);  // Pass the face number to load related images
                     });
 
                     facesContainer.appendChild(faceElement);
-                });
-            })
-            .catch(error => console.error('Error processing faces:', error));
-    });
+                }
+            });
+        })
+        .catch(error => console.error('Error processing faces:', error));
+});
 
-    // Function to load related images when a face is clicked
-    function loadRelatedImages(faceId) {
-        fetch(`/faces/related_images/${faceId}`)
-            .then(response => response.json())
-            .then(data => {
-                const relatedImagesContainer = document.getElementById('related-images-container');
-                relatedImagesContainer.innerHTML = ''; // Clear previous images
+// Function to load related images when a face is clicked
+function loadRelatedImages(faceId) {
+    fetch(`/faces/related_images/${faceId}`)
+        .then(response => response.json())
+        .then(data => {
+            const relatedImagesContainer = document.getElementById('related-images-container');
+            relatedImagesContainer.innerHTML = ''; // Clear previous images
 
-                // Display the face clicked
-                const faceImage = document.createElement('div');
-                faceImage.classList.add('related-image');
-                const faceImg = document.createElement('img');
-                faceImg.src = `/faces/image/${data.face_image}`;
-                faceImage.appendChild(faceImg);
-                relatedImagesContainer.appendChild(faceImage);
+            // Display the face clicked
+            const faceImage = document.createElement('div');
+            faceImage.classList.add('related-image');
+            const faceImg = document.createElement('img');
+            faceImg.src = `/faces/image/${data.face_image}`;
+            faceImage.appendChild(faceImg);
+            relatedImagesContainer.appendChild(faceImage);
 
-                // Display related images
-                data.related_images.forEach(imagePath => {
-                    const imageElement = document.createElement('div');
-                    imageElement.classList.add('related-image');
+            // Display related images
+            data.related_images.forEach(imagePath => {
+                const imageElement = document.createElement('div');
+                imageElement.classList.add('related-image');
 
-                    const img = document.createElement('img');
-                    img.src = `/faces/image/${imagePath}`;
-                    imageElement.appendChild(img);
+                const img = document.createElement('img');
+                img.src = `/faces/image/${imagePath}`;
+                imageElement.appendChild(img);
 
-                    relatedImagesContainer.appendChild(imageElement);
-                });
-            })
-            .catch(error => console.error('Error loading related images:', error));
-    }
+                relatedImagesContainer.appendChild(imageElement);
+            });
+        })
+        .catch(error => console.error('Error loading related images:', error));
+}
+
 </script>
 
 </body>

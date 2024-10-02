@@ -33,3 +33,14 @@ def get_related_images(face_id):
 @faces_blueprint.route('/image/<path:image_path>')
 def serve_image(image_path):
     return send_file(image_path)
+
+@faces_blueprint.route('/get_faces', methods=['GET'])
+def get_faces():
+    face_images, all_images, _ = FaceProcessor.load_processed_data()
+
+    return jsonify({
+        "face_images": face_images,  # Detected face images
+        "all_images": all_images  # All images processed
+    })
+
+

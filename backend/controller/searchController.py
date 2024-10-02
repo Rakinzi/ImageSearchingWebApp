@@ -121,22 +121,32 @@ class ImageSearcher:
             return 0
 
     def search_one_image(self, query):
-        tokens = self.TextProcessing.text_processing_model(query)
-        if self.TextProcessing.date_processor(query):
-            date_search = self.TextProcessing.date_parser(query)
-            if date_search:
-                print(
-                    date_search
-                )
-                results = self.images.get(where={"image_date": {
-                    "$eq": date_search
-                }})
-                print(results)
-                if len(results['ids']) == 0:
-                    return None
-                return results['ids']
-            else:
+        brands, dates = self.TextProcessing.extract_information(query)
+
+        if brands:
+            print(brands)
+            brand = brands[0]
+            brand = brand.lower()
+            results = self.images.get(where={"Image Make": {
+                "$eq": brand
+            }})
+
+            if len(results['ids']) == 0:
                 return None
+            print("Found the make")
+            return results['ids']
+
+        if dates:
+            print(dates)
+            date_search = self.TextProcessing.date_parser(dates[0])
+            results = self.images.get(where={"image_date": {
+                "$eq": date_search
+            }})
+            print(results)
+            if len(results['ids']) == 0:
+                return None
+            return results['ids']
+
         # if len(tokens) == 0:
         #     print(f"Not an english word:", query)
         #     return None

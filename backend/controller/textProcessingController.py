@@ -4,8 +4,10 @@ import string
 # import nltk
 import contractions
 from dateutil import parser
+import spacy
 import enchant
 
+nlp = spacy.load("en_core_web_sm")
 # # Download necessary NLTK corpora and models
 # nltk.download('stopwords')
 # nltk.download('words')
@@ -25,6 +27,20 @@ class TextProcessing:
                     word.lower() not in stopwords_list and word in english_words]
 
         return keywords
+
+    @staticmethod
+    def extract_information(query):
+        doc = nlp(query)
+        brands = []
+        dates = []
+
+        for ent in doc.ents:
+            if ent.label_ == "ORG":  # Organizations can represent brands
+                brands.append(ent.text)
+            elif ent.label_ == "DATE":  # Dates
+                dates.append(ent.text)
+
+        return brands, dates
 
     @staticmethod
     def date_processor(text):
