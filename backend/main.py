@@ -22,6 +22,7 @@ app.config.update(
 
 )
 
+
 celery = make_celery(app)
 
 app.register_blueprint(images_blueprint, url_prefix='/images')

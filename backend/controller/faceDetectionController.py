@@ -26,10 +26,13 @@ class FaceProcessor:
 
     def get_db_connection(self):
         """Create a new database connection."""
-        return sqlite3.connect("faces_database.db")
+        conn = sqlite3.connect("faces_database.db")
+        conn.row_factory = sqlite3.Row
+        return conn
 
     def create_faces_table(self):
         with self.get_db_connection() as conn:
+            conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS faces (
@@ -65,31 +68,45 @@ class FaceProcessor:
             print(f"Error extracting embedding: {e}")
             return None
 
-    def load_processed_data(self) -> Tuple[List[str], List[str], dict]:
-        if os.path.exists(self.processed_data_file):
-            print('Loading data')
-            with open(self.processed_data_file, 'r') as f:
-                data = json.load(f)
-            return data.get('face_images', []), data.get('all_images', []), data.get('face_to_original_image_map', {})
-        return [], [], {}
+    def load_data_from_db(self) -> Tuple[List[str], List[str], dict]:
+        with self.get_db_connection() as conn:
+            cursor = conn.cursor()
+            sql = "SELECT image_id, images_linked from faces"
+            cursor.execute(sql)
+            rows = cursor.fetchall()
 
-    def save_processed_data(self, face_images: List[str], all_images: List[str], face_to_original_image_map: dict):
-        with open(self.processed_data_file, 'w') as f:
-            json.dump({
-                'face_images': face_images,
-                'all_images': all_images,
-                'face_to_original_image_map': face_to_original_image_map
-            }, f)
+            face_images = []
+            all_images = set()
+            face_to_original_map = {}
+
+            for row in rows:
+                face_images.append(row['image_id'])
+                split_images = row['images_linked'].split(',')
+                for split_image in split_images:
+                    all_images.add(split_image.strip())
+                face_to_original_map[row['image_id']] = list(set(split_images))
+
+            all_images = list(all_images)
+            face_images = list(set(face_images))
+
+            return face_images, all_images, face_to_original_map
+
+    def delete_and_restructure_faces(self):
+        with self.get_db_connection() as conn:
+            cursor = conn.cursor()
+            query = "DELETE FROM faces"
+            cursor.execute(query)
+            conn.commit()
 
     def quick_load_faces(self) -> List[str]:
-        face_images, _, _ = self.load_processed_data()
+        face_images, _, _ = self.load_data_from_db()
         return face_images
 
     def process_faces(self) -> Tuple[List[str], List[str]]:
-        face_images, all_images, face_to_original_image_map = self.load_processed_data()
+        face_images, all_images, face_to_original_image_map = self.load_data_from_db()
         new_faces = []
-        processed_faces = set()  # Initialize as an empty set
 
+        print(f"{len(face_images)} Face images before processing:", face_images)
         # Process only new images
         for filename in os.listdir(self.images_dir):
             image_path = os.path.join(self.images_dir, filename)
@@ -114,8 +131,18 @@ class FaceProcessor:
 
                             face = image[new_y1:new_y2, new_x1:new_x2]
 
-                            face_filename = f'detected_face_{len(face_images) + len(new_faces) + 1}.jpg'
+                            counter = len(face_images) + len(new_faces) + 1
+                            face_filename = f'detected_face_{counter}.jpg'
                             face_path = os.path.join(self.faces_dir, face_filename)
+
+                            # Generate filename and check if it exists in a loop
+                            while os.path.exists(face_path):
+                                counter += 1
+                                face_filename = f'detected_face_{counter}.jpg'
+                                face_path = os.path.join(self.faces_dir, face_filename)
+                                print(f"File {face_filename} already exists. Trying {counter}...")
+
+                            # After the loop, face_filename and face_path will have the final values
                             cv2.imwrite(face_path, face)
                             print(f"Saved new face at {face_path}")
 
@@ -133,7 +160,7 @@ class FaceProcessor:
                 except Exception as e:
                     print(f"Error processing {filename}: {str(e)}")
 
-        print("New faces detected:", new_faces)
+        processed_faces = set()
         unique_new_faces = []
         faces_to_remove = set()
         face_images = new_faces if len(face_images) == 0 else face_images
@@ -182,7 +209,8 @@ class FaceProcessor:
                         face_to_original_image_map[new_face] = list(
                             set(face_to_original_image_map[new_face]))  # Ensure uniqueness
 
-                        print(f" for face {new_face} these are the linked images {face_to_original_image_map[new_face]}")
+                        print(
+                            f" for face {new_face} these are the linked images {face_to_original_image_map[new_face]}")
                         # Mark existing_face for removal
                         faces_to_remove.add(existing_face)
                         os.remove(existing_face)  # Remove existing face from filesystem
@@ -203,28 +231,24 @@ class FaceProcessor:
 
         # Ensure face_images only contains files that exist
         face_images = [face for face in face_images if os.path.exists(face)]
-
+        new_faces = [new_face for new_face in new_faces if os.path.exists(new_face)]
+        if new_faces:
+            face_images.extend(new_faces)
         face_images = list(set(face_images))
-        print(f"Face images after processing {face_images}")
         # Update SQLite with unique new faces
-        existing_faces = []
+        self.delete_and_restructure_faces()
         for face_path in face_images:
             if os.path.exists(face_path):  # Check if the file exists
                 original_images = face_to_original_image_map[face_path]
                 images_linked = ', '.join(original_images)  # Assuming images_linked should be a comma-separated string
 
                 self.insert_face_data(face_path, images_linked)
-                print(f"Inserted {face_path}")
+                print(f"Inserted {face_path}, images linked are {images_linked}")
 
-                existing_faces.append(face_path)  # Add only existing faces to the list
             else:
                 print(f"File not found for {face_path}, skipping database insertion and processing.")
 
-        # Update face_images list and save processed data
-        face_images.extend(existing_faces)
         face_images = list(set(face_images))  # Ensure uniqueness
-        self.save_processed_data(face_images, all_images, face_to_original_image_map)
-        print(face_images)
 
         return face_images, all_images
 
@@ -241,5 +265,3 @@ class FaceProcessor:
                 print(images_linked)
                 return images_linked, face_id
             return [], face_id  # Return empty list if no images linked
-
-
