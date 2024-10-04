@@ -123,6 +123,19 @@ class ImageSearcher:
     def search_one_image(self, query):
         brands, dates = self.TextProcessing.extract_information(query)
 
+        if brands and dates:
+            brand = brands[0].lower()
+            date = self.TextProcessing.date_parser(dates[0])
+            results = self.images.get(where={
+                "$and": [
+                    {"image_date": {"$eq": date}},
+                    {"Image Make": {"$eq": brand}}
+                ]
+            })
+            if len(results['ids']) == 0:
+                return None
+            print("Found the results")
+            return results['ids']
         if brands:
             print(brands)
             brand = brands[0]
@@ -147,13 +160,6 @@ class ImageSearcher:
                 return None
             return results['ids']
 
-        # if len(tokens) == 0:
-        #     print(f"Not an english word:", query)
-        #     return None
-        # for token in tokens:
-        #     if not self.TextProcessing.check_word(token):
-        #         print(f"Not an english word:", token)
-        #         return None
         try:
             text_input = clip.tokenize([query]).to('cpu')
             with torch.no_grad():
@@ -166,10 +172,30 @@ class ImageSearcher:
             )
 
             print(results)
+
             if results and results['ids']:
-                images =  results['ids'][0]
-                normalized_images = [os.path.normpath(image) for image in images]
-                return normalized_images
+                filtered_images = []
+                filtered_distances = []
+                filtered_metadatas = []
+
+                # Iterate through the distances and filter based on the condition
+                distances = results['distances'][0]  # Access the first (and only) list of distances
+                ids = results['ids'][0]  # Access the first (and only) list of IDs
+                metadatas = results['metadatas'][0]  # Access the first (and only) list of metadatas
+
+                for idx, distance in enumerate(distances):
+                    if distance <= 0.85:  # Filter condition
+                        filtered_images.append(os.path.normpath(ids[idx]))
+                        filtered_distances.append(distance)
+                        filtered_metadatas.append(metadatas[idx])
+
+                filtered_results = {
+                    'ids': [filtered_images],
+                    'distances': [filtered_distances],
+                    'metadatas': [filtered_metadatas]
+                }
+
+                return filtered_images if filtered_images else None
             else:
                 return None
 

@@ -22,7 +22,7 @@ def process():
     })
 
 
-# Route to get related images based on a face ID
+# Route to get rela ted images based on a face ID
 @faces_blueprint.route('/related_images/<face_id>')
 def get_related_images(face_id):
     # Call the get_related_images method to retrieve images related to the given face ID

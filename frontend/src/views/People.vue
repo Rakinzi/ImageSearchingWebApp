@@ -7,13 +7,11 @@
   <!-- Display face cards in a responsive grid layout -->
   <div v-if="faceData" class="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-4 gap-6 mt-6">
     <FaceCard
-      v-for="(faceImage, index) in faceData.face_images"
-      :key="index"
+      v-for="faceImage in faceData.face_images"
+      :key="extractIdFromImage(faceImage)"
       :faceImage="faceImage"
-      :faceId="index"
-      @click="goToRelatedImages(index)" 
+      @click="goToRelatedImages(extractIdFromImage(faceImage))" 
     />
-    
   </div>
 
   <div v-else>No Faces Detected</div>
@@ -34,7 +32,14 @@ const ReloadFaceData = () => {
   loadFaceData();
   console.log("loadFaceData");
 };
+
+const extractIdFromImage = (imageFilename) => {
+  const match = imageFilename.match(/(\d+)/);
+  return match ? parseInt(match[0]) : null;
+};
+
 const goToRelatedImages = (faceId) => {
+  console.log(faceId);
   router.push(`/faces/${faceId}`);
 };
 

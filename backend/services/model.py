@@ -1,4 +1,3 @@
-from sentence_transformers import SentenceTransformer
 import torch
 from joblib import dump
 import clip
@@ -21,7 +20,7 @@ def make_clip_model():
             device = 'cuda'
         elif torch.backends.mps.is_available():
             device = 'mps'
-        print('Downloading the model')
+        print('Downloading the models')
         model, preprocessor = clip.load('ViT-L/14', device)
         dump(value=model, filename=file_path)
         dump(value=preprocessor, filename=preprocessor_path)

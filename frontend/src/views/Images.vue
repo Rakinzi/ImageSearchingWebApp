@@ -1,61 +1,79 @@
 <script setup>
-import { ref } from 'vue';
-import axios from 'axios'; // Import axios for making API calls
-import { useFaceStore } from '../stores/faceStore';  // Import Pinia store
+import { ref, onMounted } from 'vue';
+import axios from 'axios';
+import { useFaceStore } from '../stores/faceStore';
 
-const faceStore = useFaceStore(); // Use the Pinia store
+const faceStore = useFaceStore();
+const { isLoading, faceData, loadFaceData } = faceStore;
 
-const { isLoading, faceData, loadFaceData } = faceStore; // Destructure the necessary store values
+const searchQuery = ref('');
+const loading = ref(false);
+const displayedImages = ref([]);
 
-// Fetch images based on search query using POST request
+onMounted(async () => {
+  // await loadFaceData();
+  updateDisplayedImages();
+});
+
+const updateDisplayedImages = () => {
+  displayedImages.value = faceData.all_images.map(imagePath => `http://127.0.0.1:5000/${imagePath}`);
+};
+
 const fetchImages = async (query) => {
-  loading.value = true; // Set loading to true when starting the request
+  loading.value = true;
   try {
     const response = await axios.post(
       'http://127.0.0.1:5000/images/search_images', 
-      { query }, // Send query as JSON payload
+      { query },
       {
         headers: {
-          'Content-Type': 'application/json' // Explicitly set the content type
+          'Content-Type': 'application/json'
         }
       }
     );
     
-    // Assuming 'response.data.images' contains an array of image paths
-    images.value = response.data.images.map(imagePath => `http://127.0.0.1:5000/${imagePath}`);
+    displayedImages.value = response.data.images.map(imagePath => `http://127.0.0.1:5000/${imagePath}`);
   } catch (error) {
     console.error("Error fetching images:", error);
-    images.value = [];
+    displayedImages.value = [];
   } finally {
-    loading.value = false; // Set loading to false when request completes
+    loading.value = false;
+  }
+};
+
+const handleKeyPress = (event) => {
+  if (event.key === 'Enter') {
+    if (searchQuery.value.trim() !== '') {
+      fetchImages(searchQuery.value);
+    } else {
+      updateDisplayedImages();
+    }
   }
 };
 </script>
 
 <template>
   <div>
-    <!-- Search Bar with Suggestions -->
     <div class="relative mb-4">
       <input
         type="text"
         v-model="searchQuery"
         class="p-2 border rounded-lg w-full"
         placeholder="Search nature images"
-        @input="filterSuggestions"
-        @focus="showDropdown = true"
-        @blur="hideDropdown"
+        @keyup="handleKeyPress"
       />
-      </div>
-      <div v-if="isLoading" class="flex items-center justify-center min-h-screen">
-        <div class="w-16 h-16 border-4 border-t-4 border-gray-500 border-opacity-50 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-
-    <div v-if="!isLoading"  class="grid grid-cols-1 md:grid-cols-2 gap-4 lg:grid-cols-3">
-        <div  v-for="(image, index) in faceData.all_images" :key="index">
-            <img  :src="'http://127.0.0.1:5000/' + image" class="h-auto max-w-sm rounded-lg"  alt="">
-        </div>
     </div>
-</div>
+
+    <div v-if="isLoading || loading" class="flex items-center justify-center min-h-screen">
+      <div class="w-16 h-16 border-4 border-t-4 border-gray-500 border-opacity-50 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+
+    <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4 lg:grid-cols-3">
+      <div v-for="(image, index) in displayedImages" :key="index">
+        <img :src="image" class="h-auto max-w-sm rounded-lg" alt="">
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>

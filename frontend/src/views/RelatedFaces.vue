@@ -21,6 +21,7 @@
   const loadRelatedImages = async () => {
     try {
       const response = await axios.get(`http://127.0.0.1:5000/faces/related_images/${faceId}`);
+      console.log(response.data.related_images);
       relatedImages.value = response.data.related_images;
     } catch (error) {
       console.error('Error fetching related images:', error);

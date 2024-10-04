@@ -1,6 +1,5 @@
 import os
 from controller.searchController import ImageSearcher
-from PIL.ExifTags import TAGS
 
 
 class ImageProcessor(ImageSearcher):

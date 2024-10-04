@@ -3,9 +3,6 @@ from flask import Blueprint, request, jsonify, render_template
 from tasks.imageProcessingAsync import process_images  # Importing async image processing task
 import json
 from controller.imageProcessingController import ImageProcessor
-import exifread
-from PIL import Image
-from io import BytesIO
 import os
 
 # Create a Blueprint for images-related routes

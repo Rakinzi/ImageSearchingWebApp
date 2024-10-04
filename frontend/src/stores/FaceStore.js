@@ -15,7 +15,7 @@ export const useFaceStore = defineStore('faceStore', {
         this.isLoading = true;
         this.faceData = null;
         try {
-          const response = await axios.get('http://127.0.0.1:5000/faces/process');
+          const response = await axios.get('http://127.0.0.1:5000/faces/get_faces');
           this.faceData = response.data; // Store the response in Pinia state
           console.log('Face data loaded successfully');
         } catch (error) {

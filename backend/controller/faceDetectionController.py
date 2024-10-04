@@ -1,4 +1,3 @@
-import json
 import os
 from typing import List, Tuple
 import cv2
@@ -239,8 +238,9 @@ class FaceProcessor:
         self.delete_and_restructure_faces()
         for face_path in face_images:
             if os.path.exists(face_path):  # Check if the file exists
-                original_images = face_to_original_image_map[face_path]
-                images_linked = ', '.join(original_images)  # Assuming images_linked should be a comma-separated string
+                original_images = [image.replace(" ", "") for image in face_to_original_image_map[face_path]]
+                images_linked = ','.join(original_images)
+                # Assuming images_linked should be a comma-separated string
 
                 self.insert_face_data(face_path, images_linked)
                 print(f"Inserted {face_path}, images linked are {images_linked}")
@@ -261,7 +261,7 @@ class FaceProcessor:
             cursor.execute('SELECT images_linked FROM faces WHERE image_id = ?', (face_path,))
             result = cursor.fetchone()
             if result:
-                images_linked = result[0].split(', ')  # Assuming images are stored as a comma-separated string
+                images_linked = result[0].split(',')  # Assuming images are stored as a comma-separated string
                 print(images_linked)
                 return images_linked, face_id
             return [], face_id  # Return empty list if no images linked

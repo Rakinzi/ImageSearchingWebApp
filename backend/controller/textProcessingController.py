@@ -1,18 +1,37 @@
 from nltk.corpus import words, stopwords
 from nltk.tokenize import word_tokenize
 import string
-# import nltk
 import contractions
 from dateutil import parser
 import spacy
 import enchant
+import nltk
+from nltk.data import find
 
+
+def check_and_download_nltk_resources(resource_list):
+    for resource_name in resource_list:
+        try:
+            find(resource_name)  # Check if the resource is already downloaded
+            print(f"{resource_name} is already downloaded.")
+        except LookupError:
+            print(f"{resource_name} is missing. Downloading now...")
+            # Remove the 'corpora/' or 'tokenizers/' part for download
+            nltk.download(resource_name.split('/')[1])
+
+
+# List of NLTK resources to check
+nltk_resources = [
+    'corpora/stopwords.zip',
+    'corpora/words.zip',
+    'tokenizers/punkt.zip',
+    'tokenizers/punkt_tab.zip'  # Adjust if punkt_tab is a valid resource
+]
+
+# Check and download the resources if they are missing
+check_and_download_nltk_resources(nltk_resources)
 nlp = spacy.load("en_core_web_sm")
-# # Download necessary NLTK corpora and models
-# nltk.download('stopwords')
-# nltk.download('words')
-# nltk.download('punkt')
-# nltk.download('punkt_tab')
+
 
 class TextProcessing:
     @staticmethod
