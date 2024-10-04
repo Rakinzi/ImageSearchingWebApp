@@ -24,7 +24,7 @@ const props = defineProps({
 });
 
 // Construct the image source URL
-const fileSrc = `http://127.0.0.1:5000/files/${props.file}`;
+const fileSrc = `http://10.15.10.11:5000/files/${props.file}`;
 
 // Track the visibility of the component for animation
 const visible = ref(true);

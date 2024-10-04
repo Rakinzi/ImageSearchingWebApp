@@ -50,7 +50,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
-import { useFaceStore } from '../stores/faceStore'; // Import Pinia store
+import { useFaceStore } from '../stores/FaceStore'; // Import Pinia store
 
 const name = ref(null);
 const email = ref(null);

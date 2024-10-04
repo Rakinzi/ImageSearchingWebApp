@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
-import { useFaceStore } from '../stores/faceStore';
+import { useFaceStore } from '../stores/FaceStore';
 
 const faceStore = useFaceStore();
 const { isLoading, allImages } = faceStore;
@@ -16,14 +16,14 @@ onMounted(async () => {
 
 const updateDisplayedImages = () => {
   console.log(faceStore.faceData);
-  displayedImages.value = allImages.images.map(imagePath => `http://127.0.0.1:5000/${imagePath}`);
+  displayedImages.value = allImages.images.map(imagePath => `http://10.15.10.11:5000/${imagePath}`);
 };
 
 const fetchImages = async (query) => {
   loading.value = true;
   try {
     const response = await axios.post(
-      'http://127.0.0.1:5000/images/search_images', 
+      'http://10.15.10.11:5000/images/search_images', 
       { query },
       {
         headers: {
@@ -32,7 +32,7 @@ const fetchImages = async (query) => {
       }
     );
     
-    displayedImages.value = response.data.images.map(imagePath => `http://127.0.0.1:5000/${imagePath}`);
+    displayedImages.value = response.data.images.map(imagePath => `http://10.15.10:5000/${imagePath}`);
   } catch (error) {
     console.error("Error fetching images:", error);
     displayedImages.value = [];

@@ -20,7 +20,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { useFaceStore } from '../stores/faceStore';  // Import Pinia store
+import { useFaceStore } from '../stores/FaceStore';  // Import Pinia store
 import FaceCard from '../components/FaceCard.vue';
 
 const router = useRouter();

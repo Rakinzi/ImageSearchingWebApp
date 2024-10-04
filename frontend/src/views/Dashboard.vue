@@ -20,7 +20,7 @@
      <div v-else class="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
       <div v-for="(image, index) in faceStore.allImages.images" :key="index" class="relative">
         <img
-          :src="'http://127.0.0.1:5000/' + image"
+          :src="'http://10.15.10.11:5000/' + image"
           :alt="'Image ' + (index + 1)"
           class="w-full h-48 object-cover rounded-lg shadow-md transition-transform transform hover:scale-105"
         />
@@ -36,7 +36,7 @@
 import { ref, onMounted } from 'vue';
 import Dropzone from 'dropzone';
 import moment from 'moment';
-import { useFaceStore } from '../stores/faceStore'; // Import Pinia store
+import { useFaceStore } from '../stores/FaceStore'; // Import Pinia store
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
@@ -46,7 +46,7 @@ const selectedFiles = ref([]); // Track files selected by the user for upload
 onMounted(() => {
   Dropzone.autoDiscover = false;
   const dropzone = new Dropzone("#myDropzone", {
-    url: "http://127.0.0.1:5000/images/serve_images", // Flask endpoint URL
+    url: "http://10.15.10.11:5000/images/serve_images", // Flask endpoint URL
     method: "POST",
     maxFilesize: 50, // Max file size in MB
     acceptedFiles: 'image/*', // Accept only image files
@@ -87,8 +87,9 @@ onMounted(() => {
             faceStore.faceData = null;
             console.log(faceStore.faceData)
             // Load face data from the store
+            faceStore.loadImageData();
             faceStore.loadFaceData();
-            console.log(faceStore.faceData)
+            console.log(faceStore.loadImageData())
 
             // Redirect to the '/people' route after loading the data
             // router.push('/people');

@@ -61,7 +61,7 @@
 import { ref, onMounted } from 'vue';
 import DarkModeToggle from './DarkModeToggle.vue';
 import { useRouter } from 'vue-router';
-import { useFaceStore } from '../stores/faceStore';  // Import Pinia store
+import { useFaceStore } from '../stores/FaceStore';  // Import Pinia store
 
 
 const showDropdown = ref(false); // Dropdown initially hidden

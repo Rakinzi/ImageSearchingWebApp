@@ -68,7 +68,7 @@ class ImageSearcher:
                     if location:
                         image_details['location'] = location.address  # Add location to image details
                 except Exception as e:
-                    image_details['location'] = None
+                    image_details['location'] = ""
 
         try:
             with Image.open(BytesIO(image_data)) as img:
@@ -100,7 +100,7 @@ class ImageSearcher:
 
                             image_details['image_date'] = image_date
                             image_details['type'] = image_format
-
+                            print(image_details)
                             ids = image_uri
                             self.images.upsert(
                                 embeddings=embedding_list,
