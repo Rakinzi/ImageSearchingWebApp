@@ -63,11 +63,13 @@ const router = useRouter();
 const faceStore = useFaceStore();
 const authStore = useAuthStore();''
  const login = async () => {
+ loading.value = true;
       try {
         errorMessage.value = '';
         await authStore.login(email.value, password.value)
         await faceStore.loadFaceData();
         await faceStore.loadImageData();
+        loading.value = false;
         router.push('/');
         // Handle success
       } catch (error) {

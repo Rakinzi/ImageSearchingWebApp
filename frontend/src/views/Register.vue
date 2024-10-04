@@ -65,9 +65,11 @@ const faceStore = useFaceStore();
 const authStore = useAuthStore();''
  const register = async () => {
       try {
+        loading.value = true;
         errorMessage.value = '';
         await authStore.register(name.value, email.value, password.value)
         router.push('/login');
+        loading.value = false;
         // Handle success
       } catch (error) {
         errorMessage.value = error;
