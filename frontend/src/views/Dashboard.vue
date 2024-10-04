@@ -18,7 +18,7 @@
     </div>
      <!-- Image Gallery -->
      <div v-else class="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-      <div v-for="(image, index) in faceStore.faceData.all_images" :key="index" class="relative">
+      <div v-for="(image, index) in faceStore.allImages.images" :key="index" class="relative">
         <img
           :src="'http://127.0.0.1:5000/' + image"
           :alt="'Image ' + (index + 1)"

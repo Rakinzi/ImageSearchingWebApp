@@ -21,9 +21,10 @@ def make_clip_model():
         elif torch.backends.mps.is_available():
             device = 'mps'
         print('Downloading the models')
-        model, preprocessor = clip.load('ViT-L/14', device)
+        model, preprocessor = clip.load('ViT-B/32', device)
         dump(value=model, filename=file_path)
         dump(value=preprocessor, filename=preprocessor_path)
         return 'Model and preprocessor Saved'
+
 
 print(clip.available_models())

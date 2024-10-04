@@ -17,7 +17,7 @@
   const route = useRoute();
   const faceId = route.params.faceId; // Get face ID from the route params
   const relatedImages = ref([]); // To store related images
-  
+   
   const loadRelatedImages = async () => {
     try {
       const response = await axios.get(`http://127.0.0.1:5000/faces/related_images/${faceId}`);
@@ -33,4 +33,13 @@
     loadRelatedImages();
   });
   </script>
+
+<style scoped>
+img {
+  object-fit: cover;
+  width: 300px;
+  height: 300px;
+}
+
+</style>
   

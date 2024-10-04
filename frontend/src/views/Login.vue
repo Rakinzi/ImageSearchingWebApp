@@ -48,50 +48,35 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { auth } from '../services/firebase'; 
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { useAuthStore } from '../stores/authStore';
 import { useFaceStore } from '../stores/faceStore'; // Import Pinia store
 
-const email = ref('');
-const password = ref('');
-const errorMessage = ref('');
+const name = ref(null);
+const email = ref(null);
+const password = ref(null);
+const confirmPassword = ref(null);
+const errorMessage = ref(null);
 const loading = ref(false); // Loading state for the spinner
 const router = useRouter();
 
 // Get Pinia store instance
 const faceStore = useFaceStore();
+const authStore = useAuthStore();''
+ const login = async () => {
+      try {
+        errorMessage.value = '';
+        await authStore.login(email.value, password.value)
+        await faceStore.loadFaceData();
+        await faceStore.loadImageData();
+        router.push('/');
+        // Handle success
+      } catch (error) {
+        errorMessage.value = error;
+        console.log(error)
+      }
+    }
 
-// Map Firebase errors to user-friendly messages
-const getFriendlyErrorMessage = (errorCode) => {
-  switch (errorCode) {
-    case 'auth/invalid-email':
-      return 'The email address is not valid.';
-    case 'auth/user-disabled':
-      return 'This user has been disabled.';
-    case 'auth/user-not-found':
-      return 'No user found with this email.';
-    case 'auth/wrong-password':
-      return 'Incorrect password.';
-    default:
-      return 'An error occurred. Please try again.';
-  }
-};
-
-const login = async () => {
-  errorMessage.value = '';
-  loading.value = true; // Start loading spinner
-
-  try {
-    const userCredential = await signInWithEmailAndPassword(auth, email.value, password.value);
-    console.log("User Logged In:", userCredential.user);
-     // Load face data after login
-    await faceStore.loadFaceData();
-    router.push('/');
-  } catch (error) {
-    errorMessage.value = getFriendlyErrorMessage(error.code);
-  } finally {
-    loading.value = false; // Stop loading spinner
-  }
-};
 </script>
-add face store loadFaceData after login
+
+
+

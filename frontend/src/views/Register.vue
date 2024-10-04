@@ -4,42 +4,33 @@
       <h1 class="text-2xl font-bold mb-4 dark:text-white">Register</h1>
       <form @submit.prevent="register">
         <div class="mb-4">
+          <label for="email" class="block text-gray-700 dark:text-gray-300">Name</label>
+          <input v-model="name" id="name" type="text" required class="w-full p-2 border border-gray-300 rounded-md" />
+        </div>
+        <div class="mb-4">
           <label for="email" class="block text-gray-700 dark:text-gray-300">Email</label>
-          <input
-            v-model="email"
-            id="email"
-            type="email"
-            required
-            class="w-full p-2 border border-gray-300 rounded-md"
-          />
+          <input v-model="email" id="email" type="email" required
+            class="w-full p-2 border border-gray-300 rounded-md" />
         </div>
         <div class="mb-4">
           <label for="password" class="block text-gray-700 dark:text-gray-300">Password</label>
-          <input
-            v-model="password"
-            id="password"
-            type="password"
-            required
-            class="w-full p-2 border border-gray-300 rounded-md"
-          />
+          <input v-model="password" id="password" type="password" required
+            class="w-full p-2 border border-gray-300 rounded-md" />
         </div>
         <div class="mb-4">
           <label for="confirmPassword" class="block text-gray-700 dark:text-gray-300">Confirm Password</label>
-          <input
-            v-model="confirmPassword"
-            id="confirmPassword"
-            type="password"
-            required
-            class="w-full p-2 border border-gray-300 rounded-md"
-          />
+          <input v-model="confirmPassword" id="confirmPassword" type="password" required
+            class="w-full p-2 border border-gray-300 rounded-md" />
         </div>
-        
+
         <!-- Display error message -->
         <p v-if="errorMessage" class="text-red-500 mb-4">{{ errorMessage }}</p>
 
         <!-- Register Button with Spinner -->
-        <button type="submit" class="w-full bg-blue-500 text-white py-2 rounded-md flex items-center justify-center" :disabled="loading">
-          <svg v-if="loading" class="animate-spin h-5 w-5 mr-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <button type="submit" class="w-full bg-blue-500 text-white py-2 rounded-md flex items-center justify-center"
+          :disabled="loading">
+          <svg v-if="loading" class="animate-spin h-5 w-5 mr-3 text-white" xmlns="http://www.w3.org/2000/svg"
+            fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
           </svg>
@@ -58,41 +49,33 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { auth } from '../services/firebase'; 
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { useAuthStore } from '../stores/authStore';
 import { useFaceStore } from '../stores/faceStore'; // Import Pinia store
 
-const email = ref('');
-const password = ref('');
-const confirmPassword = ref('');
-const errorMessage = ref('');
+const name = ref(null);
+const email = ref(null);
+const password = ref(null);
+const confirmPassword = ref(null);
+const errorMessage = ref(null);
 const loading = ref(false); // Loading state for the spinner
 const router = useRouter();
 
 // Get Pinia store instance
 const faceStore = useFaceStore();
+const authStore = useAuthStore();''
+ const register = async () => {
+      try {
+        errorMessage.value = '';
+        await authStore.register(name.value, email.value, password.value)
+        router.push('/login');
+        // Handle success
+      } catch (error) {
+        errorMessage.value = error;
+        console.log(error)
+      }
+    }
 
-const register = async () => {
-  errorMessage.value = '';
-  
-  // Check if passwords match
-  if (password.value !== confirmPassword.value) {
-    errorMessage.value = 'Passwords do not match.';
-    return;
-  }
-
-  loading.value = true; // Start loading spinner
-
-  try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email.value, password.value);
-    console.log("User Registered:", userCredential.user);
-    await faceStore.loadFaceData();
-    router.push('/'); // Redirect after successful registration
-  } catch (error) {
-    
-    errorMessage.value = error.message;
-  } finally {
-    loading.value = false; // Stop loading spinner
-  }
-};
 </script>
+
+
+

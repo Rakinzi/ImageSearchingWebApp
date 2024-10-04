@@ -4,19 +4,19 @@ import axios from 'axios';
 import { useFaceStore } from '../stores/faceStore';
 
 const faceStore = useFaceStore();
-const { isLoading, faceData, loadFaceData } = faceStore;
-
+const { isLoading, allImages } = faceStore;
+ 
 const searchQuery = ref('');
 const loading = ref(false);
 const displayedImages = ref([]);
 
 onMounted(async () => {
-  // await loadFaceData();
   updateDisplayedImages();
 });
 
 const updateDisplayedImages = () => {
-  displayedImages.value = faceData.all_images.map(imagePath => `http://127.0.0.1:5000/${imagePath}`);
+  console.log(faceStore.faceData);
+  displayedImages.value = allImages.images.map(imagePath => `http://127.0.0.1:5000/${imagePath}`);
 };
 
 const fetchImages = async (query) => {

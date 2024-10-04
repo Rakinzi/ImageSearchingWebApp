@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- If loading, show a spinner -->
-    <div v-if="loading" class="flex justify-center items-center h-screen">
+    <div v-if="false" class="flex justify-center items-center h-screen">
       <div class="spinner"></div> <!-- You can replace this with any spinner component -->
     </div>
 
@@ -9,17 +9,17 @@
     <div v-else class="flex h-screen">
       <!-- Conditionally render SideNav and Navbar based on authentication -->
       <SideNav 
-        v-if="isAuthenticated && !isAuthRoute" 
+        v-if="authStore.isAuthenticated && !isAuthRoute" 
         @openUploadOverlay="showOverlay = true" 
         class="fixed top-0 left-0 h-full w-64 bg-gray-200 dark:bg-gray-800"
       />
-      <div :class="{ 'ml-64': isAuthenticated && !isAuthRoute }" class="flex-1 flex flex-col">
+      <div :class="{ 'ml-64': authStore.isAuthenticated && !isAuthRoute }" class="flex-1 flex flex-col">
     <Navbar 
-      v-if="isAuthenticated && !isAuthRoute" 
+      v-if="authStore.isAuthenticated && !isAuthRoute" 
       class="fixed top-0 left-64 right-0 bg-white dark:bg-gray-900 shadow-md"
     />
     
-    <main :class="{ 'mt-16': isAuthenticated && !isAuthRoute }"  class="flex-1 p-4  bg-gray-100 dark:bg-gray-900">
+    <main :class="{ 'mt-16': authStore.isAuthenticated && !isAuthRoute }"  class="flex-1 p-4  bg-gray-100 dark:bg-gray-900">
       <router-view />
     </main>
   </div>
@@ -27,41 +27,26 @@
     <FileUploadOverlay :showOverlay="showOverlay" @close="showOverlay = false" />
   </div>
 </template>
-
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from './services/firebase';
 import SideNav from './components/SideNav.vue';
 import Navbar from './components/NavBar.vue';
 // import router from './router/index';
 import { useRoute } from 'vue-router';  // Import useRoute to access current path
 import FileUploadOverlay from './components/FileUploadOverlay.vue';
+import { useAuthStore } from './stores/authStore'; // Import Pinia store
 
 const showOverlay = ref(false);
 
 // Reactive properties
 const loading = ref(true);
-const isAuthenticated = ref(false);
+const authStore = useAuthStore(); // Access the auth store
 
 const route = useRoute(); // Get the current route
 
-onMounted(() => {
-  // Listen for changes to the user's authentication state
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      isAuthenticated.value = true; // User is authenticated
-    } else {
-      isAuthenticated.value = false; // User is not authenticated
-    }
-    loading.value = false; // Firebase auth state has been resolved
-  });
-});
 
-// Computed property to determine if the current route is `/login` or `/register`
-const isAuthRoute = computed(() => {
-  return route.path === '/login' || route.path === '/register';
-});
+
+
 </script>
 
 <style>

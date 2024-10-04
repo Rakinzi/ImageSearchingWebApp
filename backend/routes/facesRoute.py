@@ -1,6 +1,7 @@
 # Import necessary modules and classes
 from controller.faceDetectionController import FaceProcessor  # FaceProcessor handles face detection-related operations
 from flask import Blueprint, request, jsonify, send_file  # Import Flask modules for routing and sending responses
+import os
 
 # Initialize an instance of FaceProcessor to handle face detection
 face_processor = FaceProcessor()
@@ -26,10 +27,13 @@ def process():
 @faces_blueprint.route('/related_images/<face_id>')
 def get_related_images(face_id):
     # Call the get_related_images method to retrieve images related to the given face ID
+    faces_dir = 'static/uploads/images/faces'
     related_images, face_image = face_processor.get_related_images(face_id)
-
+    face_filename = f'detected_face_{face_id}.jpg'
+    face_path = os.path.join(faces_dir, face_filename)
+    print(face_path)
     # Return a JSON response containing related images and the specific face image
-    return jsonify({"related_images": related_images, "face_image": face_image})
+    return jsonify({"related_images": related_images, "face_image": face_path})
 
 
 # Route to serve an image file given its path

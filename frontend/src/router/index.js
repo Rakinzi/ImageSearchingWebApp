@@ -1,13 +1,14 @@
 // src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router';
+import { useAuthStore } from '../stores/authStore'; // Import Pinia store
 import Dashboard from '../views/Dashboard.vue';
 import People from '../views/People.vue';
 import Upload from '../views/Upload.vue';
 import Login from '../views/Login.vue';
 import Register from '../views/Register.vue';
 import RelatedFaces from '../views/RelatedFaces.vue';
-import { auth } from '../services/firebase'; // Import Firebase Auth instance
 import Images from '../views/Images.vue';
+import VerifyEmail from '../views/VerifyEmail.vue';
 
 
 const routes = [
@@ -43,6 +44,7 @@ const routes = [
 
   { path: '/login', name: 'Login', component: Login, meta: { layout: 'auth' } },
   { path: '/register', name: 'Register', component: Register, meta: { layout: 'auth' } },
+  { path: '/verify-email', name: 'verify-email', component: VerifyEmail, meta: {  layout: 'auth' } }
 ];
 
 const router = createRouter({
@@ -52,13 +54,12 @@ const router = createRouter({
 
 // Navigation guard to protect routes that require authentication
 router.beforeEach((to, from, next) => {
-  // Get the currently authenticated user
-  const currentUser = auth.currentUser;
+  const authStore = useAuthStore(); // Get the auth store
 
   // Check if the route requires authentication
   if (to.matched.some(record => record.meta.requiresAuth)) {
-    // If not logged in, redirect to login page
-    if (!currentUser) {
+    // If not authenticated, redirect to login page
+    if (!authStore.authenticated) {
       next('/login');
     } else {
       next(); // Proceed if the user is authenticated

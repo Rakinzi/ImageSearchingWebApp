@@ -121,6 +121,7 @@ class ImageSearcher:
             return 0
 
     def search_one_image(self, query):
+        self.TextProcessing = TextProcessing()
         brands, dates = self.TextProcessing.extract_information(query)
 
         if brands and dates:
@@ -184,7 +185,7 @@ class ImageSearcher:
                 metadatas = results['metadatas'][0]  # Access the first (and only) list of metadatas
 
                 for idx, distance in enumerate(distances):
-                    if distance <= 0.85:  # Filter condition
+                    if distance <= 0.80:  # Filter condition
                         filtered_images.append(os.path.normpath(ids[idx]))
                         filtered_distances.append(distance)
                         filtered_metadatas.append(metadatas[idx])
