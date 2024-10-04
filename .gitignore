@@ -10,7 +10,7 @@
 /backend/static/**/*.gif
 venv/
 
-/backend/static/
+backend/static/
 
 # Ignore node_modules
 frontend/node_modules/
