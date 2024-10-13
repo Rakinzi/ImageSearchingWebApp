@@ -19,7 +19,7 @@
           class="fixed top-0 left-64 right-0 bg-white dark:bg-gray-900 shadow-md"
         />
         
-        <main :class="{ 'mt-16': authStore.isAuthenticated && !isAuthRoute }" class="flex-1 p-4 bg-gray-100 dark:bg-gray-900">
+        <main :class="{ 'mt-16': authStore.isAuthenticated && !isAuthRoute }" class="flex-1 bg-gray-100 dark:bg-gray-900">
           <router-view />
         </main>
       </div>
