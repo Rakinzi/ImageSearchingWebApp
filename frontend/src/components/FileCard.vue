@@ -15,6 +15,7 @@
 
 <script setup>
 import { ref, defineProps } from 'vue';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const props = defineProps({
   file: {
@@ -24,7 +25,7 @@ const props = defineProps({
 });
 
 // Construct the image source URL
-const fileSrc = `http://10.15.10.11:5000/files/${props.file}`;
+const fileSrc = apiUrl + '/files/' + props.file;
 
 // Track the visibility of the component for animation
 const visible = ref(true);

@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import { useFaceStore } from '../stores/FaceStore';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const faceStore = useFaceStore();
 const { isLoading, allImages } = faceStore;
@@ -16,14 +17,14 @@ onMounted(async () => {
 
 const updateDisplayedImages = () => {
   console.log(faceStore.faceData);
-  displayedImages.value = allImages.images.map(imagePath => `http://10.15.10.11:5000/${imagePath}`);
+  displayedImages.value = allImages.images.map(imagePath =>  `${apiUrl}/${imagePath}`);
 };
 
 const fetchImages = async (query) => {
   loading.value = true;
   try {
     const response = await axios.post(
-      'http://10.15.10.11:5000/images/search_images', 
+      `${apiUrl}/images/search_images`, 
       { query },
       {
         headers: {
@@ -32,7 +33,7 @@ const fetchImages = async (query) => {
       }
     );
     
-    displayedImages.value = response.data.images.map(imagePath => `http://10.15.10:5000/${imagePath}`);
+    displayedImages.value = response.data.images.map(imagePath => `${apiUrl}/${imagePath}`);
   } catch (error) {
     console.error("Error fetching images:", error);
     displayedImages.value = [];
@@ -59,7 +60,7 @@ const handleKeyPress = (event) => {
         type="text"
         v-model="searchQuery"
         class="p-2 border rounded-lg w-full"
-        placeholder="Search nature images"
+        placeholder="Search images"
         @keyup="handleKeyPress"
       />
     </div>

@@ -7,45 +7,44 @@
 
     <!-- If not loading, show the app layout -->
     <div v-else class="flex h-screen">
-      <!-- Conditionally render SideNav and Navbar based on authentication -->
+      <!-- Conditionally render SideNav and Navbar based on authentication and route -->
       <SideNav 
         v-if="authStore.isAuthenticated && !isAuthRoute" 
         @openUploadOverlay="showOverlay = true" 
         class="fixed top-0 left-0 h-full w-64 bg-gray-200 dark:bg-gray-800"
       />
       <div :class="{ 'ml-64': authStore.isAuthenticated && !isAuthRoute }" class="flex-1 flex flex-col">
-    <Navbar 
-      v-if="authStore.isAuthenticated && !isAuthRoute" 
-      class="fixed top-0 left-64 right-0 bg-white dark:bg-gray-900 shadow-md"
-    />
-    
-    <main :class="{ 'mt-16': authStore.isAuthenticated && !isAuthRoute }"  class="flex-1 p-4  bg-gray-100 dark:bg-gray-900">
-      <router-view />
-    </main>
-  </div>
+        <Navbar 
+          v-if="authStore.isAuthenticated && !isAuthRoute" 
+          class="fixed top-0 left-64 right-0 bg-white dark:bg-gray-900 shadow-md"
+        />
+        
+        <main :class="{ 'mt-16': authStore.isAuthenticated && !isAuthRoute }" class="flex-1 p-4 bg-gray-100 dark:bg-gray-900">
+          <router-view />
+        </main>
+      </div>
     </div>
     <FileUploadOverlay :showOverlay="showOverlay" @close="showOverlay = false" />
   </div>
 </template>
+
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, computed } from 'vue';
 import SideNav from './components/SideNav.vue';
 import Navbar from './components/NavBar.vue';
-// import router from './router/index';
-import { useRoute } from 'vue-router';  // Import useRoute to access current path
 import FileUploadOverlay from './components/FileUploadOverlay.vue';
 import { useAuthStore } from './stores/authStore'; // Import Pinia store
+import { useRoute } from 'vue-router';  // Import useRoute to access current path
 
 const showOverlay = ref(false);
-
-// Reactive properties
-const loading = ref(true);
 const authStore = useAuthStore(); // Access the auth store
-
 const route = useRoute(); // Get the current route
 
-
-
+// Computed property to determine if the current route is an auth-related route
+const isAuthRoute = computed(() => {
+  const authRoutes = ['/login', '/register', '/forgot-password']; // Define auth routes
+  return authRoutes.includes(route.path);
+});
 
 </script>
 

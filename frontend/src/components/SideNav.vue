@@ -1,5 +1,15 @@
 <template>
-  <aside class="w-64 bg-white dark:bg-gray-800 h-full shadow-md">
+  <aside class="w-64 bg-white dark:bg-gray-800 h-full shadow-md overflow-y-auto" id="style-3">
+    <!-- Logo Section -->
+    <!-- <div class="p-4 flex justify-center">
+      <a href="http://www.creative-tim.com" aria-label="sidebar mini logo" class="simple-text logo-mini">
+        <div class="logo-img">
+          <img src="data:image/png;base64,iVBOR..." alt="Logo" class="w-12 h-12">
+        </div>
+      </a>
+    </div> -->
+
+    <!-- Button to Open Upload Overlay -->
     <div class="p-4">
       <button @click="openUploadOverlay" class="p-2 w-full bg-blue-500 text-white rounded-md flex items-center justify-center space-x-2">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -9,6 +19,7 @@
       </button>
     </div>
 
+    <!-- Navigation Links -->
     <nav class="mt-4">
       <ul class="space-y-2">
         <li>
@@ -68,5 +79,22 @@ const openUploadOverlay = () => {
 </script>
 
 <style scoped>
-/* Additional custom styles for active links if necessary */
+/* Custom scrollbar styling */
+#style-3::-webkit-scrollbar {
+  width: 8px;
+}
+
+#style-3::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+#style-3::-webkit-scrollbar-thumb {
+  background-color: #888;
+  border-radius: 10px;
+  border: 2px solid transparent;
+}
+
+#style-3::-webkit-scrollbar-thumb:hover {
+  background-color: #555;
+}
 </style>

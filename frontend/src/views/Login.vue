@@ -14,6 +14,7 @@
           />
         </div>
         <div class="mb-4">
+        
           <label for="password" class="block text-gray-700 dark:text-gray-300">Password</label>
           <input
             v-model="password"
@@ -73,6 +74,7 @@ const authStore = useAuthStore();''
         router.push('/');
         // Handle success
       } catch (error) {
+        loading.value = false;
         errorMessage.value = error;
         console.log(error)
       }

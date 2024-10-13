@@ -265,3 +265,4 @@ class FaceProcessor:
                 print(images_linked)
                 return images_linked, face_id
             return [], face_id  # Return empty list if no images linked
+
