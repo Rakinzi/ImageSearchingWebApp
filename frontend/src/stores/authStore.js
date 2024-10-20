@@ -1,9 +1,8 @@
 import { defineStore } from 'pinia';
 import axios from 'axios';
-const apiUrl = import.meta.env.VITE_API_URL;
+import { AUTH_URL } from './urls.js';
 
-
-const API_URL = apiUrl + '/auth';
+const API_URL = 'http://10.15.10.11:5000/auth';
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -67,7 +66,7 @@ export const useAuthStore = defineStore('auth', {
     // Register new user
     async register(name, email, password) {
       try {
-        const response = await axios.post(`${API_URL}/register`, {
+        const response = await axios.post(`${AUTH_URL}/register`, {
           name,
           email,
           password,
@@ -81,7 +80,7 @@ export const useAuthStore = defineStore('auth', {
     // Login user
     async login(email, password) {
       try {
-        const response = await axios.post(`${API_URL}/login`, {
+        const response = await axios.post(`${AUTH_URL}/login`, {
           email,
           password,
         });
@@ -103,7 +102,7 @@ export const useAuthStore = defineStore('auth', {
     // Refresh token
     async refreshToken() {
       try {
-        const response = await axios.post(`${API_URL}/refresh`, {}, {
+        const response = await axios.post(`${AUTH_URL}/refresh`, {}, {
           headers: {
             'Authorization': `Bearer ${this.refresh_token}`
           }
@@ -118,7 +117,7 @@ export const useAuthStore = defineStore('auth', {
     // Get current user
     async fetchUser() {
       try {
-        const response = await axios.get(`${API_URL}/me`);
+        const response = await axios.get(`${AUTH_URL}/me`);
         this.user = response.data;
         return response.data;
       } catch (error) {
@@ -129,7 +128,7 @@ export const useAuthStore = defineStore('auth', {
     // Request password reset
     async forgotPassword(email) {
       try {
-        const response = await axios.post(`${API_URL}/forgot-password`, { email });
+        const response = await axios.post(`${AUTH_URL}/forgot-password`, { email });
         return response.data;
       } catch (error) {
         throw error.response?.data?.error || 'Password reset request failed';
@@ -139,7 +138,7 @@ export const useAuthStore = defineStore('auth', {
     // Reset password with token
     async resetPassword(token, new_password) {
       try {
-        const response = await axios.post(`${API_URL}/reset-password/${token}`, {
+        const response = await axios.post(`${AUTH_URL}/reset-password/${token}`, {
           new_password
         });
         return response.data;
@@ -151,7 +150,7 @@ export const useAuthStore = defineStore('auth', {
     // Resend verification email
     async resendVerification(email) {
       try {
-        const response = await axios.post(`${API_URL}/resend-verification`, { email });
+        const response = await axios.post(`${AUTH_URL}/resend-verification`, { email });
         return response.data;
       } catch (error) {
         throw error.response?.data?.error || 'Failed to resend verification';

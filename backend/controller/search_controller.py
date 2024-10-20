@@ -3,7 +3,7 @@ import chromadb
 import torch
 from PIL import Image
 from joblib import load
-from controller.textProcessingController import TextProcessing
+from controller.text_processing_controller import TextProcessing
 import os
 import clip
 import exifread
@@ -22,7 +22,7 @@ class ImageSearcher:
         model = load(model_path)
         self.model = model.eval()
         self.preprocessor = load(preprocessor_path)
-        self.chroma_client = chromadb.PersistentClient('./controller/db/')
+        self.chroma_client = chromadb.PersistentClient('./chroma_db')
         self.images = self.chroma_client.get_or_create_collection(name='image_vectors',
                                                                   metadata={"hnsw:space": "cosine"}
                                                                   )
@@ -168,8 +168,7 @@ class ImageSearcher:
 
             text_emb = embedding.tolist()
             results = self.images.query(
-                query_embeddings=text_emb,
-                n_results=5,
+                query_embeddings=text_emb
             )
 
             print(results)
@@ -185,7 +184,7 @@ class ImageSearcher:
                 metadatas = results['metadatas'][0]  # Access the first (and only) list of metadatas
 
                 for idx, distance in enumerate(distances):
-                    if distance <= 0.80:  # Filter condition
+                    if distance <= 0.85:  # Filter condition
                         filtered_images.append(os.path.normpath(ids[idx]))
                         filtered_distances.append(distance)
                         filtered_metadatas.append(metadatas[idx])

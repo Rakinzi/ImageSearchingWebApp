@@ -66,6 +66,9 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
 import { useFaceStore } from '../stores/FaceStore'; // Import Pinia store
+import { BASE_URL, IMAGE_URL } from '../stores/urls';
+
+console.log(IMAGE_URL);
 
 const email = ref(null);
 const password = ref(null);

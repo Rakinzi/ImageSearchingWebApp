@@ -1,10 +1,10 @@
 import os
-from controller.searchController import ImageSearcher
+from controller.search_controller import ImageSearcher
 
 
 class ImageProcessor(ImageSearcher):
 
-    def __init__(self, file_data=None, image_details=None, data=None):
+    def __init__(self, file_data=None, image_details=None, data=None, file=None):
         super().__init__()
         self.file_data = file_data
         self.image_details = image_details

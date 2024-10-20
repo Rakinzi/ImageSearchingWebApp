@@ -2,9 +2,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor
 import logging
 import atexit
-from controller.faceDetectionController import FaceProcessor
 
-face_processor = FaceProcessor()
 
 
 def faces_scheduler():
@@ -22,18 +20,20 @@ def faces_scheduler():
     scheduler = BackgroundScheduler(executors=executors)
 
     def background_task():
+        from controller.face_detection_controller import FaceProcessor
+
+        face_processor = FaceProcessor()
         logger.info('Background Task is executing')
         face_processor.process_faces()
         logger.info('Processing Tasks')
-        print('Processing those faces brother')
 
     scheduler.add_job(
         func=background_task,
         trigger='interval',
-        minutes=5,
+        seconds=10,
         id='background_task',
         max_instances=1,
-        replace_existing=True
+        replace_existing=False
     )
 
     scheduler.start()

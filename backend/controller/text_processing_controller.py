@@ -17,7 +17,9 @@ def check_and_download_nltk_resources(resource_list):
         except LookupError:
             print(f"{resource_name} is missing. Downloading now...")
             # Remove the 'corpora/' or 'tokenizers/' part for download
-            nltk.download(resource_name.split('/')[1])
+            temp = resource_name.split('/')[1]
+            packages = temp.split('.')[0]
+            nltk.download(packages)
 
 
 # List of NLTK resources to check

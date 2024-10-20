@@ -2,10 +2,11 @@
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import { useFaceStore } from '../stores/FaceStore';
-const apiUrl = import.meta.env.VITE_API_URL;
+import { BASE_URL, IMAGE_URL } from '../stores/urls';
 
 const faceStore = useFaceStore();
 const { isLoading, allImages } = faceStore;
+
  
 const searchQuery = ref('');
 const loading = ref(false);
@@ -17,14 +18,14 @@ onMounted(async () => {
 
 const updateDisplayedImages = () => {
   console.log(faceStore.faceData);
-  displayedImages.value = allImages.images.map(imagePath =>  `${apiUrl}/${imagePath}`);
+  displayedImages.value = allImages ? allImages.images.map(imagePath => `${BASE_URL + imagePath}`) : [];
 };
 
 const fetchImages = async (query) => {
   loading.value = true;
   try {
     const response = await axios.post(
-      `${apiUrl}/images/search_images`, 
+      `${IMAGE_URL}/search_images`, 
       { query },
       {
         headers: {
@@ -33,7 +34,7 @@ const fetchImages = async (query) => {
       }
     );
     
-    displayedImages.value = response.data.images.map(imagePath => `${apiUrl}/${imagePath}`);
+    displayedImages.value = response.data.images.map(imagePath => `${BASE_URL + imagePath}`);
   } catch (error) {
     console.error("Error fetching images:", error);
     displayedImages.value = [];

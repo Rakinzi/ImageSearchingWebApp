@@ -34,8 +34,8 @@ const ReloadFaceData = () => {
 };
 
 const extractIdFromImage = (imageFilename) => {
-  const match = imageFilename.match(/(\d+)/);
-  return match ? parseInt(match[0]) : null;
+  const match = imageFilename.match(/faces\\(.*?)(?:\.jpg|\.jpeg|\.png)$/);
+  return match ? match[1] : null;
 };
 
 const goToRelatedImages = (faceId) => {

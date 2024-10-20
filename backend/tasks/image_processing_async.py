@@ -12,7 +12,7 @@ def process_images(file_data, image_details):
         # Additional logging to verify data
         logger.info("Received file data of length: %d", len(file_data))
 
-        from controller.imageProcessingController import ImageProcessor
+        from controller.image_processing_controller import ImageProcessor
         image_processor = ImageProcessor(file_data=file_data, image_details=image_details)
 
         # Log before processing

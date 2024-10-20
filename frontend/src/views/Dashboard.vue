@@ -20,7 +20,7 @@
      <div v-else class="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
       <div v-for="(image, index) in faceStore.allImages.images" :key="index" class="relative"> 
         <img
-          :src="`${apiUrl}/${image}`"
+          :src="BASE_URL + image"
           :alt="'Image ' + (index + 1)"
           class="w-full h-48 object-cover rounded-lg shadow-md transition-transform transform hover:scale-105"
         />
@@ -38,7 +38,7 @@ import Dropzone from 'dropzone';
 import moment from 'moment';
 import { useFaceStore } from '../stores/FaceStore'; // Import Pinia store
 import { useRouter } from 'vue-router';
-const apiUrl = import.meta.env.VITE_API_URL;
+import { BASE_URL, IMAGE_URL } from '../stores/urls';
 
 const router = useRouter();
 const faceStore = useFaceStore();
@@ -47,7 +47,7 @@ const selectedFiles = ref([]); // Track files selected by the user for upload
 onMounted(() => {
   Dropzone.autoDiscover = false;
   const dropzone = new Dropzone("#myDropzone", {
-    url: apiUrl + "/images/serve_images", // Flask endpoint URL
+    url: `${IMAGE_URL}/serve_images`, // Flask endpoint URL
     method: "POST",
     maxFilesize: 50, // Max file size in MB
     acceptedFiles: 'image/*', // Accept only image files
