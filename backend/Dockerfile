@@ -1,0 +1,97 @@
+FROM nvidia/cuda:11.8-devel-ubuntu20.04 as gpu-base
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+RUN apt-get update && apt-get install -y \
+    python3.9 \
+    python3.9-dev \
+    python3-pip \
+    python3.9-venv \
+    build-essential \
+    cmake \
+    pkg-config \
+    libmysqlclient-dev \
+    libhdf5-dev \
+    libopencv-dev \
+    libgtk-3-dev \
+    libboost-all-dev \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgl1-mesa-glx \
+    wget \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd --create-home --shell /bin/bash app
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN python3.9 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install --upgrade pip setuptools wheel
+RUN pip install --no-cache-dir -r requirements.txt
+
+FROM ubuntu:20.04 as cpu-base
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+RUN apt-get update && apt-get install -y \
+    python3.9 \
+    python3.9-dev \
+    python3-pip \
+    python3.9-venv \
+    build-essential \
+    cmake \
+    pkg-config \
+    libmysqlclient-dev \
+    libhdf5-dev \
+    libopencv-dev \
+    libgtk-3-dev \
+    libboost-all-dev \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgl1-mesa-glx \
+    wget \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd --create-home --shell /bin/bash app
+WORKDIR /app
+
+COPY requirements-cpu.txt .
+RUN python3.9 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install --upgrade pip setuptools wheel
+RUN pip install --no-cache-dir -r requirements-cpu.txt
+
+FROM gpu-base as final
+
+COPY --chown=app:app . .
+
+RUN mkdir -p static/uploads/{images,thumbnails,faces} logs chroma_db && \
+    chown -R app:app static logs chroma_db
+
+RUN python -m spacy download en_core_web_sm
+
+USER app
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:5000/health || exit 1
+
+EXPOSE 5000
+
+COPY --chown=app:app scripts/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

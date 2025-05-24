@@ -1,5 +1,6 @@
 # Ignore virtual environments
 /backend/venv/
+venv/
 
 # Ignore the specific .joblib file
 /backend/controller/*.joblib
