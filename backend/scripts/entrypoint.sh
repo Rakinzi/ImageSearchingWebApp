@@ -1,16 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "Starting Image Search Application..."
-
-# Check if GPU is available
-if command -v nvidia-smi &> /dev/null; then
-    echo "GPU detected, using GPU acceleration"
-    export CUDA_VISIBLE_DEVICES=0
-else
-    echo "No GPU detected, falling back to CPU"
-    export CUDA_VISIBLE_DEVICES=""
-fi
+echo "Starting Image Search Application (CPU-only)..."
 
 # Wait for database to be ready
 echo "Waiting for database..."
