@@ -3,12 +3,14 @@ from flask_jwt_extended import JWTManager
 from flask_mail import Mail
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_bcrypt import Bcrypt
 from celery import Celery
 import redis
 
 db = SQLAlchemy()
 jwt = JWTManager()
 mail = Mail()
+bcrypt = Bcrypt()
 
 cache = None
 

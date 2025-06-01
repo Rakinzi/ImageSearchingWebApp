@@ -5,7 +5,7 @@ from flask_cors import CORS
 from flask_migrate import Migrate
 
 from config.settings import Config
-from extensions import db, jwt, mail, celery, cache, limiter
+from extensions import db, jwt, mail, celery, cache, limiter, bcrypt
 from middleware.auth import setup_jwt_handlers
 from middleware.audit_logger import setup_audit_logging
 from utils.security import setup_security_headers
@@ -21,6 +21,7 @@ def create_app(config_name='default'):
     db.init_app(app)
     jwt.init_app(app)
     mail.init_app(app)
+    bcrypt.init_app(app)
     cache.init_app(app)
     limiter.init_app(app)
     
