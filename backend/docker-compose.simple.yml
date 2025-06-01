@@ -32,10 +32,8 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-      - ./config/redis.conf:/usr/local/etc/redis/redis.conf
     networks:
       - backend_network
-    command: redis-server /usr/local/etc/redis/redis.conf
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -98,7 +96,9 @@ services:
       dockerfile: Dockerfile.cpu-only
     container_name: image_search_celery_worker
     restart: unless-stopped
-    command: celery -A app.celery worker --loglevel=info --concurrency=4 --max-tasks-per-child=100
+    # Changed to use the Flask app's entrypoint but override with celery command
+    entrypoint: ["/bin/bash", "-c"]
+    command: ["source /opt/venv/bin/activate && celery -A app.celery worker --loglevel=info --concurrency=2"]
     environment:
       - FLASK_ENV=${FLASK_ENV:-production}
       - DATABASE_URL=mysql+pymysql://${MYSQL_USER:-app_user}:${MYSQL_PASSWORD:-secure_app_password}@mysql:3306/${MYSQL_DATABASE:-image_search_db}
@@ -125,7 +125,9 @@ services:
       dockerfile: Dockerfile.cpu-only
     container_name: image_search_celery_beat
     restart: unless-stopped
-    command: celery -A app.celery beat --loglevel=info
+    # Changed to use the Flask app's entrypoint but override with celery command
+    entrypoint: ["/bin/bash", "-c"]
+    command: ["source /opt/venv/bin/activate && celery -A app.celery beat --loglevel=info"]
     environment:
       - FLASK_ENV=${FLASK_ENV:-production}
       - DATABASE_URL=mysql+pymysql://${MYSQL_USER:-app_user}:${MYSQL_PASSWORD:-secure_app_password}@mysql:3306/${MYSQL_DATABASE:-image_search_db}

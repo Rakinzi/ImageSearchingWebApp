@@ -85,7 +85,11 @@ def make_celery(app):
     celery.Task = ContextTask
     return celery
 
+# Create Flask app
 app = create_app()
+
+# Configure Celery with app context
+app.app_context().push()
 celery = make_celery(app)
 
 if __name__ == '__main__':

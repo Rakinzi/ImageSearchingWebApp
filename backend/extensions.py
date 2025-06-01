@@ -12,13 +12,21 @@ jwt = JWTManager()
 mail = Mail()
 bcrypt = Bcrypt()
 
-cache = None
+# Redis cache wrapper class
+class RedisCache:
+    def __init__(self):
+        self._redis = None
+    
+    def init_app(self, app):
+        self._redis = redis.from_url(app.config['REDIS_URL'])
+        return self._redis
+    
+    def __getattr__(self, name):
+        if self._redis is None:
+            raise RuntimeError("Cache not initialized. Call init_app first.")
+        return getattr(self._redis, name)
 
-def init_cache(app):
-    global cache
-    import redis
-    cache = redis.from_url(app.config['REDIS_URL'])
-    return cache
+cache = RedisCache()
 
 limiter = Limiter(
     key_func=get_remote_address,
@@ -26,24 +34,3 @@ limiter = Limiter(
 )
 
 celery = Celery('image_search_app')
-
-def init_celery(app):
-    celery.conf.update(
-        broker_url=app.config['CELERY_BROKER_URL'],
-        result_backend=app.config['CELERY_RESULT_BACKEND'],
-        task_serializer='json',
-        accept_content=['json'],
-        result_serializer='json',
-        timezone='UTC',
-        enable_utc=True,
-        worker_prefetch_multiplier=1,
-        task_acks_late=True,
-        worker_max_tasks_per_child=100,
-        task_routes={
-            'tasks.image_tasks.*': {'queue': 'image_processing'},
-            'tasks.face_tasks.*': {'queue': 'face_processing'},
-            'tasks.maintenance_tasks.*': {'queue': 'maintenance'},
-        },
-        beat_schedule=app.config.get('CELERY_BEAT_SCHEDULE', {})
-    )
-    return celery
