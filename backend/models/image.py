@@ -27,7 +27,8 @@ class Image(db.Model):
     location = db.Column(db.String(500), nullable=True)
     
     exif_data = db.Column(JSON, nullable=True)
-    metadata = db.Column(JSON, nullable=True)
+    # Fixed: renamed from 'metadata' to 'image_metadata' to avoid SQLAlchemy reserved word conflict
+    image_metadata = db.Column(JSON, nullable=True)
     
     vector_id = db.Column(db.String(255), nullable=True, index=True)
     embedding_version = db.Column(db.String(50), default='v1', nullable=False)
@@ -90,7 +91,7 @@ class Image(db.Model):
             'image_date': self.image_date.isoformat() if self.image_date else None,
             'location': self.location,
             'exif_data': self.exif_data,
-            'metadata': self.metadata,
+            'metadata': self.image_metadata,  # Use the property for backward compatibility
             'processing_time': self.get_processing_time(),
             'face_count': len(self.faces),
             'created_at': self.created_at.isoformat(),
