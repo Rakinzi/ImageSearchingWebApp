@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Your Email - Image Search</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background-color: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+        .title {
+            color: #333;
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        .button {
+            display: inline-block;
+            background-color: #007bff;
+            color: white;
+            padding: 14px 28px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 20px 0;
+            transition: background-color 0.3s ease;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+        .link-fallback {
+            word-break: break-all;
+            color: #6c757d;
+            font-size: 14px;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+            font-size: 14px;
+            color: #6c757d;
+            text-align: center;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🔍 Image Search</div>
+        </div>
+        
+        <h1 class="title">Verify Your Email Address</h1>
+        
+        <p>Hello {{ name }},</p>
+        
+        <p>Thank you for registering with Image Search! To complete your registration and start using our AI-powered image search platform, please verify your email address.</p>
+        
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{ verification_url }}" class="button">Verify Email Address</a>
+        </div>
+        
+        <p>If the button above doesn't work, you can copy and paste the following link into your browser:</p>
+        
+        <div class="link-fallback">
+            {{ verification_url }}
+        </div>
+        
+        <div class="warning">
+            <strong>⏰ Important:</strong> This verification link will expire in 24 hours. If you didn't create an account with Image Search, please ignore this email.
+        </div>
+        
+        <p>Once verified, you'll be able to:</p>
+        <ul>
+            <li>Upload and organize your images</li>
+            <li>Search images using natural language</li>
+            <li>Automatically detect and group faces</li>
+            <li>Access advanced AI-powered features</li>
+        </ul>
+        
+        <div class="footer">
+            <p>Need help? Contact our support team at support@imagesearch.com</p>
+            <p>&copy; 2025 Image Search. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

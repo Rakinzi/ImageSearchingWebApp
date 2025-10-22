@@ -1,0 +1,73 @@
+# Core Flask and web framework
+Flask
+Flask-CORS
+Flask-SQLAlchemy
+Flask-Migrate
+Flask-JWT-Extended
+Flask-Mail
+Flask-Limiter
+Flask-Bcrypt
+flask-smorest
+Werkzeug
+itsdangerous
+
+# Database
+SQLAlchemy
+psycopg2-binary
+python-magic
+
+# Security and authentication
+cryptography
+PyJWT
+bcrypt
+bleach
+email-validator
+passlib
+
+# Task queue
+redis
+celery
+
+# Image processing
+Pillow
+opencv-python
+opencv-python-headless
+numpy
+ExifRead
+
+# AI/ML Core (CPU versions)
+tensorflow-cpu
+tf-keras
+scikit-learn
+
+# AI/ML Specific packages
+git+https://github.com/openai/CLIP.git
+facenet-pytorch
+deepface
+face-recognition
+chromadb
+sentence-transformers
+
+# NLP
+spacy
+nltk
+contractions
+
+# Utilities
+geopy
+python-dotenv
+click
+structlog
+python-dateutil
+
+# Server
+gunicorn
+eventlet
+
+# Monitoring
+prometheus-client
+
+# Development/Testing
+pytest
+pytest-flask
+pytest-cov
