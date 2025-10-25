@@ -12,6 +12,8 @@ from flask import current_app
 logger = logging.getLogger(__name__)
 
 class VectorService:
+    CLIP_EMBEDDING_DIM = 512  # ViT-B/32 produces 512-dim embeddings
+
     def __init__(self):
         self.device = self._get_optimal_device()
         self.model = None
@@ -72,32 +74,66 @@ class VectorService:
             raise Exception(f"ChromaDB initialization failed: {str(e)}")
     
     def generate_image_embedding(self, image_data: bytes) -> np.ndarray:
+        """Generate CLIP embedding for an image.
+
+        Args:
+            image_data: Raw image bytes
+
+        Returns:
+            numpy array of shape (512,) containing the embedding
+
+        Raises:
+            Exception: If embedding generation fails
+        """
         self._ensure_initialized()
         try:
             with Image.open(BytesIO(image_data)) as img:
                 if img.mode != 'RGB':
                     img = img.convert('RGB')
-                
+
                 image_input = self.preprocessor(img).unsqueeze(0).to(self.device)
-                
+
                 with torch.no_grad():
                     embedding = self.model.encode_image(image_input)
+                    # Normalize the embedding
+                    embedding = embedding / embedding.norm(dim=-1, keepdim=True)
                     embedding = embedding.cpu().numpy().flatten()
-                
+
+                # Validate embedding dimension
+                if embedding.shape[0] != self.CLIP_EMBEDDING_DIM:
+                    raise ValueError(f"Invalid embedding dimension: {embedding.shape[0]}, expected {self.CLIP_EMBEDDING_DIM}")
+
                 return embedding
         except Exception as e:
             logger.error(f"Failed to generate image embedding: {str(e)}")
             raise Exception(f"Image embedding generation failed: {str(e)}")
     
     def generate_text_embedding(self, text: str) -> np.ndarray:
+        """Generate CLIP embedding for text.
+
+        Args:
+            text: Text query string
+
+        Returns:
+            numpy array of shape (512,) containing the embedding
+
+        Raises:
+            Exception: If embedding generation fails
+        """
         self._ensure_initialized()
         try:
             text_input = clip.tokenize([text]).to(self.device)
-            
+
             with torch.no_grad():
                 embedding = self.model.encode_text(text_input)
+                # Normalize the embedding
+                embedding = embedding / embedding.norm(dim=-1, keepdim=True)
                 embedding = embedding.cpu().numpy().flatten()
-            
+
+            # Validate embedding dimension
+            if embedding.shape[0] != self.CLIP_EMBEDDING_DIM:
+                raise ValueError(f"Invalid embedding dimension: {embedding.shape[0]}, expected {self.CLIP_EMBEDDING_DIM}")
+
             return embedding
         except Exception as e:
             logger.error(f"Failed to generate text embedding: {str(e)}")
@@ -136,30 +172,35 @@ class VectorService:
         self._ensure_initialized()
         try:
             where_clause = filter_metadata if filter_metadata else None
-            
+
             results = self.image_collection.query(
                 query_embeddings=[query_embedding.tolist()],
                 n_results=limit,
                 where=where_clause
             )
-            
+
             if not results['ids'] or not results['ids'][0]:
                 return []
-            
+
             similar_images = []
             for i, (img_id, distance, metadata) in enumerate(zip(
-                results['ids'][0], 
-                results['distances'][0], 
+                results['ids'][0],
+                results['distances'][0],
                 results['metadatas'][0]
             )):
-                similarity = 1 - distance
-                if similarity >= (1 - similarity_threshold):
+                # ChromaDB cosine distance: 0 = identical, 2 = opposite
+                # Convert to similarity: 1 = identical, 0 = opposite
+                similarity = 1 - (distance / 2.0)
+
+                # Apply threshold (higher threshold = stricter matching)
+                if similarity >= similarity_threshold:
                     similar_images.append({
                         'id': img_id,
-                        'similarity': similarity,
+                        'similarity': float(similarity),
+                        'distance': float(distance),
                         'metadata': metadata
                     })
-            
+
             return similar_images
         except Exception as e:
             logger.error(f"Failed to search similar images: {str(e)}")
@@ -172,30 +213,35 @@ class VectorService:
         self._ensure_initialized()
         try:
             where_clause = filter_metadata if filter_metadata else None
-            
+
             results = self.face_collection.query(
                 query_embeddings=[query_embedding.tolist()],
                 n_results=limit,
                 where=where_clause
             )
-            
+
             if not results['ids'] or not results['ids'][0]:
                 return []
-            
+
             similar_faces = []
             for i, (face_id, distance, metadata) in enumerate(zip(
                 results['ids'][0],
                 results['distances'][0],
                 results['metadatas'][0]
             )):
-                similarity = 1 - distance
-                if similarity >= (1 - similarity_threshold):
+                # ChromaDB cosine distance: 0 = identical, 2 = opposite
+                # Convert to similarity: 1 = identical, 0 = opposite
+                similarity = 1 - (distance / 2.0)
+
+                # Apply threshold (higher threshold = stricter matching)
+                if similarity >= similarity_threshold:
                     similar_faces.append({
                         'id': face_id,
-                        'similarity': similarity,
+                        'similarity': float(similarity),
+                        'distance': float(distance),
                         'metadata': metadata
                     })
-            
+
             return similar_faces
         except Exception as e:
             logger.error(f"Failed to search similar faces: {str(e)}")

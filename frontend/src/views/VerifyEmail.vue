@@ -1,87 +1,73 @@
-<!-- src/views/VerifyEmail.vue -->
 <template>
-  <n-layout style="min-height: 100vh;">
-    <n-layout-content style="padding: 0;">
-      <div style="display: flex; min-height: 100vh; align-items: center; justify-content: center; padding: 24px;">
-        <n-card style="width: 100%; max-width: 400px; padding: 24px;" :bordered="false" embedded>
-          <!-- Loading State -->
-          <div v-if="loading" style="text-align: center;">
-            <n-spin size="large" />
-            <n-h2 style="margin-top: 24px; text-align: center;">
-              Verifying your email...
-            </n-h2>
-          </div>
-
-          <!-- Success State -->
-          <div v-if="success" style="text-align: center;">
-            <n-icon size="48" color="#18a058" style="margin-bottom: 16px;">
-              <CheckmarkCircleOutline />
-            </n-icon>
-            <n-h2 style="text-align: center; margin-bottom: 16px;">
-              Email verified successfully!
-            </n-h2>
-            <n-text style="color: #666;">
-              Your email has been verified. You can now login to your account.
-            </n-text>
-            <div style="margin-top: 24px;">
-              <router-link to="/login">
-                <n-button type="primary" size="large">
-                  Go to Login
-                </n-button>
-              </router-link>
-            </div>
-          </div>
-
-          <!-- Error State -->
-          <div v-if="error" style="text-align: center;">
-            <n-icon size="48" color="#d03050" style="margin-bottom: 16px;">
-              <CloseCircleOutline />
-            </n-icon>
-            <n-h2 style="text-align: center; margin-bottom: 16px;">
-              Verification Failed
-            </n-h2>
-            <n-text style="color: #666; display: block; margin-bottom: 24px;">
-              {{ errorMessage }}
-            </n-text>
-            <n-space vertical>
-              <router-link to="/login">
-                <n-button type="primary" size="large">
-                  Go to Login
-                </n-button>
-              </router-link>
-              <n-button
-                @click="resendVerification"
-                :loading="resendLoading"
-                secondary
-              >
-                Resend Verification Email
-              </n-button>
-            </n-space>
-          </div>
-        </n-card>
+  <div class="flex min-h-screen items-center justify-center p-6">
+    <Card class="w-full max-w-md p-6">
+      <!-- Loading State -->
+      <div v-if="loading" class="text-center">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+        <h2 class="text-2xl font-bold mt-6">Verifying your email...</h2>
       </div>
-    </n-layout-content>
-  </n-layout>
+
+      <!-- Success State -->
+      <div v-if="success" class="text-center">
+        <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <CheckCircle class="h-6 w-6 text-green-600" />
+        </div>
+        <h2 class="text-2xl font-bold mb-4">Email verified successfully!</h2>
+        <p class="text-muted-foreground mb-6">
+          Your email has been verified. You can now login to your account.
+        </p>
+        <router-link to="/login">
+          <Button size="lg" class="w-full">Go to Login</Button>
+        </router-link>
+      </div>
+
+      <!-- Error State -->
+      <div v-if="error" class="text-center">
+        <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <XCircle class="h-6 w-6 text-red-600" />
+        </div>
+        <h2 class="text-2xl font-bold mb-4">Verification Failed</h2>
+        <p class="text-muted-foreground mb-6">{{ errorMessage }}</p>
+        <div class="space-y-3">
+          <router-link to="/login">
+            <Button size="lg" class="w-full">Go to Login</Button>
+          </router-link>
+          <Button
+            @click="resendVerification"
+            :disabled="resendLoading"
+            variant="outline"
+            size="lg"
+            class="w-full"
+          >
+            <span v-if="resendLoading" class="flex items-center justify-center">
+              <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+              Sending...
+            </span>
+            <span v-else>Resend Verification Email</span>
+          </Button>
+        </div>
+      </div>
+    </Card>
+  </div>
 </template>
-  
+
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useMessage } from 'naive-ui'
-import { CheckmarkCircleOutline, CloseCircleOutline } from '@vicons/ionicons5'
+import { useRoute } from 'vue-router'
+import { CheckCircle, XCircle } from 'lucide-vue-next'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { useAuthStore } from '../stores/authStore'
-  
+
 const route = useRoute()
-const router = useRouter()
 const authStore = useAuthStore()
-const message = useMessage()
 
 const loading = ref(true)
 const success = ref(false)
 const error = ref(false)
 const errorMessage = ref('')
 const resendLoading = ref(false)
-  
+
 const verifyEmail = async () => {
   const token = route.query.token
 
@@ -116,19 +102,19 @@ const verifyEmail = async () => {
     loading.value = false
   }
 }
-  
+
 const resendVerification = async () => {
   resendLoading.value = true
   try {
     await authStore.resendVerification()
-    message.success('New verification email has been sent. Please check your inbox.')
+    alert('New verification email has been sent. Please check your inbox.')
   } catch (err) {
-    message.error('Failed to resend verification email. Please try again.')
+    alert('Failed to resend verification email. Please try again.')
   } finally {
     resendLoading.value = false
   }
 }
-  
+
 onMounted(() => {
   verifyEmail()
 })

@@ -3,9 +3,7 @@ import { createApp } from 'vue';
 import App from './App.vue';
 import router from './router';
 import { createPinia } from 'pinia';
-
-// Naive UI
-import naive from 'naive-ui';
+import './style.css';
 
 // Stores
 import { useAuthStore } from './stores/authStore.js';
@@ -15,7 +13,6 @@ const app = createApp(App);
 
 app.use(router);
 app.use(pinia);
-app.use(naive);
 
 // Initialize auth store
 const authStore = useAuthStore();

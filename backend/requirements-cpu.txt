@@ -36,7 +36,10 @@ numpy
 ExifRead
 
 # AI/ML Core (CPU versions)
-tensorflow-cpu
+torch
+torchvision
+torchaudio
+--extra-index-url https://download.pytorch.org/whl/cpu
 tf-keras
 scikit-learn
 
@@ -52,6 +55,14 @@ sentence-transformers
 spacy
 nltk
 contractions
+
+# OCR (Optical Character Recognition)
+# EasyOCR for best accuracy (CPU version)
+easyocr
+# Alternative OCR backends (optional, uncomment if needed):
+# paddleocr
+# paddlepaddle
+# pytesseract
 
 # Utilities
 geopy

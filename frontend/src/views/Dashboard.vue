@@ -1,209 +1,188 @@
 <template>
-  <div>
+  <div class="space-y-6">
     <!-- Page Header -->
-    <n-page-header title="Dashboard" subtitle="Welcome to your image management dashboard">
-      <template #extra>
-        <n-space>
-          <n-button type="primary" @click="refreshData">
-            <template #icon>
-              <n-icon><refresh /></n-icon>
-            </template>
-            Refresh
-          </n-button>
-        </n-space>
-      </template>
-    </n-page-header>
-
-    <n-divider />
+    <div class="flex justify-between items-center pb-6 border-b">
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p class="text-muted-foreground mt-1">Welcome to your image management dashboard</p>
+      </div>
+      <Button @click="refreshData" variant="outline">
+        <RefreshCcw class="mr-2 h-4 w-4" />
+        Refresh
+      </Button>
+    </div>
 
     <!-- Stats Grid -->
-    <n-grid :cols="4" :x-gap="16" :y-gap="16" responsive="screen">
-      <n-grid-item>
-        <n-card title="Total Images" size="small">
-          <template #header-extra>
-            <n-icon size="20" color="#3B82F6"><images-icon /></n-icon>
-          </template>
-          <n-statistic :value="imageStats.total || 0">
-            <template #suffix>
-              <n-text depth="3">images</n-text>
-            </template>
-          </n-statistic>
-        </n-card>
-      </n-grid-item>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <Card>
+        <CardContent class="p-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-muted-foreground">Total Images</p>
+              <p class="text-3xl font-bold mt-2">{{ imageStats.total || 0 }}</p>
+              <p class="text-xs text-muted-foreground mt-1">images</p>
+            </div>
+            <div class="h-12 w-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+              <Images class="h-6 w-6 text-blue-600 dark:text-blue-400" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      <n-grid-item>
-        <n-card title="Processing" size="small">
-          <template #header-extra>
-            <n-icon size="20" color="#F59E0B"><time /></n-icon>
-          </template>
-          <n-statistic :value="processingCount || 0">
-            <template #suffix>
-              <n-text depth="3">pending</n-text>
-            </template>
-          </n-statistic>
-        </n-card>
-      </n-grid-item>
+      <Card>
+        <CardContent class="p-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-muted-foreground">Processing</p>
+              <p class="text-3xl font-bold mt-2">{{ processingCount || 0 }}</p>
+              <p class="text-xs text-muted-foreground mt-1">pending</p>
+            </div>
+            <div class="h-12 w-12 bg-amber-100 dark:bg-amber-900 rounded-full flex items-center justify-center">
+              <Clock class="h-6 w-6 text-amber-600 dark:text-amber-400" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      <n-grid-item>
-        <n-card title="Faces Detected" size="small">
-          <template #header-extra>
-            <n-icon size="20" color="#10B981"><people /></n-icon>
-          </template>
-          <n-statistic :value="faceStats.total || 0">
-            <template #suffix>
-              <n-text depth="3">faces</n-text>
-            </template>
-          </n-statistic>
-        </n-card>
-      </n-grid-item>
+      <Card>
+        <CardContent class="p-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-muted-foreground">Faces Detected</p>
+              <p class="text-3xl font-bold mt-2">{{ faceStats.total || 0 }}</p>
+              <p class="text-xs text-muted-foreground mt-1">faces</p>
+            </div>
+            <div class="h-12 w-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+              <Users class="h-6 w-6 text-green-600 dark:text-green-400" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      <n-grid-item>
-        <n-card title="Storage Used" size="small">
-          <template #header-extra>
-            <n-icon size="20" color="#8B5CF6"><folder /></n-icon>
-          </template>
-          <n-statistic :value="formatFileSize(storageUsed)">
-            <template #suffix>
-              <n-text depth="3"></n-text>
-            </template>
-          </n-statistic>
-        </n-card>
-      </n-grid-item>
-    </n-grid>
-
-    <n-divider />
+      <Card>
+        <CardContent class="p-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-muted-foreground">Storage Used</p>
+              <p class="text-3xl font-bold mt-2">{{ formatFileSize(storageUsed) }}</p>
+              <p class="text-xs text-muted-foreground mt-1">total</p>
+            </div>
+            <div class="h-12 w-12 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center">
+              <FolderOpen class="h-6 w-6 text-purple-600 dark:text-purple-400" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
 
     <!-- Recent Activity -->
-    <n-grid :cols="2" :x-gap="16">
-      <n-grid-item>
-        <n-card title="Recent Images" size="small">
-          <template #header-extra>
-            <n-button text @click="$router.push('/images')">View All</n-button>
-          </template>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Recent Images -->
+      <Card>
+        <CardContent class="p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">Recent Images</h3>
+            <Button variant="ghost" size="sm" @click="$router.push('/images')">
+              View All
+            </Button>
+          </div>
 
-          <n-list v-if="recentImages.length > 0">
-            <n-list-item v-for="image in recentImages" :key="image.id">
-              <template #prefix>
-                <n-avatar
-                  :src="image.thumbnail_path"
-                  :fallback-src="'/placeholder-image.png'"
-                  round
-                  size="medium"
-                />
-              </template>
-              <n-thing :title="image.original_filename" :description="formatDate(image.created_at)">
-                <template #footer>
-                  <n-space>
-                    <n-tag :type="getStatusType(image.status)" size="small">
-                      {{ image.status }}
-                    </n-tag>
-                    <n-text depth="3" style="font-size: 12px">
-                      {{ formatFileSize(image.file_size) }}
-                    </n-text>
-                  </n-space>
-                </template>
-              </n-thing>
-            </n-list-item>
-          </n-list>
-
-          <n-empty v-else description="No recent images">
-            <template #extra>
-              <n-button @click="$router.push('/upload')">Upload Images</n-button>
-            </template>
-          </n-empty>
-        </n-card>
-      </n-grid-item>
-
-      <n-grid-item>
-        <n-card title="Recent Faces" size="small">
-          <template #header-extra>
-            <n-button text @click="$router.push('/faces')">View All</n-button>
-          </template>
-
-          <n-grid v-if="recentFaces.length > 0" :cols="4" :x-gap="8" :y-gap="8">
-            <n-grid-item v-for="face in recentFaces" :key="face.id">
-              <n-avatar
-                :src="face.face_path"
-                :fallback-src="'/placeholder-face.png'"
-                size="large"
-                style="cursor: pointer"
-                @click="viewFace(face.id)"
+          <div v-if="recentImages.length > 0" class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div
+              v-for="image in recentImages"
+              :key="image.id"
+              class="relative group cursor-pointer"
+            >
+              <img
+                :src="image.thumbnail_path"
+                :alt="image.original_filename"
+                class="w-full aspect-square object-cover rounded-lg"
               />
-            </n-grid-item>
-          </n-grid>
+              <Badge
+                :variant="getStatusVariant(image.status)"
+                class="absolute top-2 right-2"
+              >
+                {{ image.status }}
+              </Badge>
+            </div>
+          </div>
 
-          <n-empty v-else description="No faces detected yet" />
-        </n-card>
-      </n-grid-item>
-    </n-grid>
+          <div v-else class="flex flex-col items-center justify-center py-8 text-center">
+            <Upload class="h-12 w-12 text-muted-foreground/30 mb-3" />
+            <p class="text-muted-foreground mb-4">No recent images</p>
+            <Button @click="$router.push('/upload')">Upload Images</Button>
+          </div>
+        </CardContent>
+      </Card>
 
-    <n-divider />
+      <!-- Recent Faces -->
+      <Card>
+        <CardContent class="p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">Recent Faces</h3>
+            <Button variant="ghost" size="sm" @click="$router.push('/faces')">
+              View All
+            </Button>
+          </div>
+
+          <div v-if="recentFaces.length > 0" class="grid grid-cols-4 gap-3">
+            <div
+              v-for="face in recentFaces"
+              :key="face.id"
+              class="aspect-square rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+              @click="viewFace(face.id)"
+            >
+              <img
+                :src="face.face_path"
+                alt="Face"
+                class="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+
+          <div v-else class="flex flex-col items-center justify-center py-8 text-center">
+            <Users class="h-12 w-12 text-muted-foreground/30 mb-3" />
+            <p class="text-muted-foreground">No faces detected yet</p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
 
     <!-- Quick Actions -->
-    <n-card title="Quick Actions" size="small">
-      <n-space size="large">
-        <n-button type="primary" size="large" @click="$router.push('/upload')">
-          <template #icon>
-            <n-icon><cloud-upload /></n-icon>
-          </template>
-          Upload Images
-        </n-button>
-
-        <n-button size="large" @click="$router.push('/search')">
-          <template #icon>
-            <n-icon><search /></n-icon>
-          </template>
-          Search Images
-        </n-button>
-
-        <n-button size="large" @click="$router.push('/faces')">
-          <template #icon>
-            <n-icon><people /></n-icon>
-          </template>
-          Browse Faces
-        </n-button>
-      </n-space>
-    </n-card>
+    <Card>
+      <CardContent class="p-6">
+        <h3 class="text-lg font-semibold mb-4">Quick Actions</h3>
+        <div class="flex gap-3 flex-wrap">
+          <Button @click="$router.push('/upload')" size="lg">
+            <Upload class="mr-2 h-5 w-5" />
+            Upload Images
+          </Button>
+          <Button @click="$router.push('/search')" variant="outline" size="lg">
+            <Search class="mr-2 h-5 w-5" />
+            Search Images
+          </Button>
+          <Button @click="$router.push('/faces')" variant="outline" size="lg">
+            <Users class="mr-2 h-5 w-5" />
+            Browse Faces
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import {
-  NPageHeader,
-  NDivider,
-  NGrid,
-  NGridItem,
-  NCard,
-  NStatistic,
-  NIcon,
-  NText,
-  NButton,
-  NSpace,
-  NList,
-  NListItem,
-  NAvatar,
-  NThing,
-  NTag,
-  NEmpty,
-  useMessage
-} from 'naive-ui'
-import {
-  Images as ImagesIcon,
-  Time,
-  People,
-  Folder,
-  Refresh,
-  CloudUpload,
-  Search
-} from '@vicons/ionicons5'
-import dayjs from 'dayjs'
+import { Images, Clock, Users, FolderOpen, RefreshCcw, Upload, Search } from 'lucide-vue-next'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { useImagesStore } from '../stores/imagesStore.js'
 import { useFaceStore } from '../stores/FaceStore.js'
+import { API_BASE_URL } from '../services/api'
 
 const router = useRouter()
-const message = useMessage()
 const imagesStore = useImagesStore()
 const faceStore = useFaceStore()
 
@@ -232,7 +211,14 @@ const loadDashboardData = async () => {
 
     // Load recent images
     await imagesStore.loadImages(1, true)
-    recentImages.value = imagesStore.images.slice(0, 5)
+    recentImages.value = imagesStore.images.slice(0, 5).map(image => ({
+      id: image.id,
+      thumbnail_path: `${API_BASE_URL}/api/v2/images/${image.id}/thumbnail`,
+      original_filename: image.filename || image.original_filename || 'Untitled',
+      created_at: image.created_at,
+      status: image.status,
+      file_size: image.file_size
+    }))
 
     // Load recent faces if available
     try {
@@ -247,7 +233,7 @@ const loadDashboardData = async () => {
 
   } catch (error) {
     console.error('Failed to load dashboard data:', error)
-    message.error('Failed to load dashboard data')
+    alert('Failed to load dashboard data')
 
     // Fallback to mock data if API fails
     imageStats.value = { total: 0 }
@@ -261,7 +247,7 @@ const loadDashboardData = async () => {
 
 const refreshData = () => {
   loadDashboardData()
-  message.success('Dashboard data refreshed')
+  alert('Dashboard data refreshed')
 }
 
 const viewFace = (faceId) => {
@@ -269,10 +255,6 @@ const viewFace = (faceId) => {
 }
 
 // Utility methods
-const formatDate = (dateString) => {
-  return dayjs(dateString).format('MMM D, YYYY h:mm A')
-}
-
 const formatFileSize = (bytes) => {
   if (bytes === 0) return '0 B'
   const k = 1024
@@ -281,17 +263,13 @@ const formatFileSize = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
-const getStatusType = (status) => {
+const getStatusVariant = (status) => {
   switch (status) {
-    case 'completed': return 'success'
-    case 'processing': return 'info'
-    case 'failed': return 'error'
-    case 'pending': return 'warning'
-    default: return 'default'
+    case 'completed': return 'default'
+    case 'processing': return 'secondary'
+    case 'failed': return 'destructive'
+    case 'pending': return 'outline'
+    default: return 'outline'
   }
 }
 </script>
-
-<style scoped>
-/* Minimal custom styles - Naive UI handles most styling */
-</style>

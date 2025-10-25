@@ -8,6 +8,7 @@ import Login from '../views/Login.vue';
 import Register from '../views/Register.vue';
 import RelatedFaces from '../views/RelatedFaces.vue';
 import Images from '../views/Images.vue';
+import ImageDetail from '../views/ImageDetail.vue';
 import VerifyEmail from '../views/VerifyEmail.vue';
 
 
@@ -28,6 +29,12 @@ const routes = [
     path: '/images',
     name: 'Images',
     component: Images,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/images/:id',
+    name: 'ImageDetail',
+    component: ImageDetail,
     meta: { requiresAuth: true }
   },
   {

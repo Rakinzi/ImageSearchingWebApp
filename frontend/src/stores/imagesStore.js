@@ -167,16 +167,10 @@ export const useImagesStore = defineStore('images', {
           formData.append('files', file)
         })
 
-        // V2 endpoint - add boolean options (send only when true, marshmallow handles false as default)
-        if (options.extractText) {
-          formData.append('extract_text', 'true')
-        }
-        if (options.detectFaces) {
-          formData.append('detect_faces', 'true')
-        }
-        if (options.generateEmbeddings) {
-          formData.append('generate_embeddings', 'true')
-        }
+        // V2 endpoint - add boolean options explicitly
+        formData.append('extract_text', options.extractText !== false ? 'true' : 'false')
+        formData.append('detect_faces', options.detectFaces !== false ? 'true' : 'false')
+        formData.append('generate_embeddings', options.generateEmbeddings !== false ? 'true' : 'false')
 
         // Add metadata as JSON string
         if (options.metadata && Object.keys(options.metadata).length > 0) {

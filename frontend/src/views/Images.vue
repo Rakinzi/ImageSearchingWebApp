@@ -1,40 +1,25 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import {
-  NInput,
-  NGrid,
-  NGridItem,
-  NImage,
-  NImageGroup,
-  NSpin,
-  NEmpty,
-  NIcon,
-  NText,
-  NButton,
-  NCard,
-  NSpace,
-  NButtonGroup,
-  NBadge,
-  useMessage
-} from 'naive-ui';
-import {
-  Search,
-  GridOutline,
-  AppsOutline,
-  ListOutline,
-  RefreshOutline,
-  CloudUploadOutline
-} from '@vicons/ionicons5';
+import { Search, Grid3x3, Grid2x2, List, RefreshCcw, Upload, Download, Edit2, Info } from 'lucide-vue-next';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import VueEasyLightbox from 'vue-easy-lightbox';
 import { useImagesStore } from '../stores/imagesStore';
 import { API_BASE_URL } from '../services/api';
+import { useRouter } from 'vue-router';
 
+const router = useRouter();
 const imagesStore = useImagesStore();
-const message = useMessage();
 
 const searchQuery = ref('');
 const loading = ref(false);
 const displayedImages = ref([]);
 const viewMode = ref('grid'); // 'grid', 'masonry', 'list'
+const visibleRef = ref(false);
+const indexRef = ref(0);
+const imagesRef = computed(() => displayedImages.value.map(img => img.fullUrl));
 
 onMounted(async () => {
   await loadImages();
@@ -47,7 +32,6 @@ const loadImages = async () => {
     updateDisplayedImages();
   } catch (error) {
     console.error("Error loading images:", error);
-    message.error("Failed to load images");
   } finally {
     loading.value = false;
   }
@@ -76,10 +60,8 @@ const fetchImages = async (query) => {
       created_at: image.created_at,
       status: image.status
     }));
-    message.success(`Found ${results.length} images`);
   } catch (error) {
     console.error("Error searching images:", error);
-    message.error("Failed to search images");
     displayedImages.value = [];
   } finally {
     loading.value = false;
@@ -100,419 +82,310 @@ const handleKeyPress = (event) => {
   }
 };
 
-// Grid columns based on view mode
-const gridCols = computed(() => {
+const gridClass = computed(() => {
   switch (viewMode.value) {
     case 'grid':
-      return '1 500:2 800:3 1200:4';
+      return 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4';
     case 'masonry':
-      return '1 500:2 800:3 1200:5';
+      return 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3';
     case 'list':
-      return '1';
+      return 'flex flex-col gap-4';
     default:
-      return '1 500:2 800:3 1200:4';
+      return 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4';
   }
 });
 
 const imageHeight = computed(() => {
-  switch (viewMode.value) {
-    case 'grid':
-      return '280px';
-    case 'masonry':
-      return 'auto';
-    case 'list':
-      return '120px';
-    default:
-      return '280px';
-  }
+  return viewMode.value === 'list' ? 'h-28' : 'h-72';
 });
+
+const openLightbox = (index) => {
+  indexRef.value = index;
+  visibleRef.value = true;
+};
+
+const viewImageDetail = (imageId) => {
+  router.push(`/images/${imageId}`);
+};
+
+const closeLightbox = () => {
+  visibleRef.value = false;
+};
+
+const downloadImage = () => {
+  const currentImage = displayedImages.value[indexRef.value];
+  if (currentImage) {
+    const link = document.createElement('a');
+    link.href = currentImage.fullUrl;
+    link.download = currentImage.filename;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+};
+
+const editImage = () => {
+  const currentImage = displayedImages.value[indexRef.value];
+  if (currentImage) {
+    // Open image in new tab for editing (or implement your own editor)
+    window.open(currentImage.fullUrl, '_blank');
+  }
+};
+
+const showImageInfo = () => {
+  const currentImage = displayedImages.value[indexRef.value];
+  if (currentImage) {
+    // Navigate to detail page
+    router.push(`/images/${currentImage.id}`);
+  }
+};
+
+const formatFileSize = (bytes) => {
+  if (!bytes) return 'N/A';
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
 </script>
 
 <template>
-  <div class="images-page">
+  <div class="w-full max-w-[1600px] mx-auto p-6">
     <!-- Header Section -->
-    <div class="page-header">
-      <div class="header-content">
-        <div class="title-section">
-          <n-text class="page-title">My Gallery</n-text>
-          <n-badge
-            :value="displayedImages.length"
-            :max="999"
-            type="info"
-            style="margin-left: 12px;"
-          />
+    <div class="flex justify-between items-start mb-8 pb-6 border-b">
+      <div class="flex-1">
+        <div class="flex items-center mb-2">
+          <h1 class="text-4xl font-bold tracking-tight">My Gallery</h1>
+          <Badge variant="secondary" class="ml-3">{{ displayedImages.length }}</Badge>
         </div>
-        <n-text class="page-subtitle">
+        <p class="text-muted-foreground text-base">
           Browse, search, and manage your image collection
-        </n-text>
+        </p>
       </div>
 
-      <n-button
-        type="primary"
-        size="large"
-        @click="$router.push('/upload')"
-        class="upload-btn"
-      >
-        <template #icon>
-          <n-icon>
-            <CloudUploadOutline />
-          </n-icon>
-        </template>
+      <Button @click="router.push('/upload')" size="lg" class="ml-6">
+        <Upload class="mr-2 h-5 w-5" />
         Upload Images
-      </n-button>
+      </Button>
     </div>
 
     <!-- Search and Controls Bar -->
-    <div class="controls-bar">
-      <n-input
-        v-model:value="searchQuery"
-        placeholder="Search your images..."
-        size="large"
-        clearable
-        class="search-input"
-        @keyup="handleKeyPress"
-      >
-        <template #prefix>
-          <n-icon size="20">
-            <Search />
-          </n-icon>
-        </template>
-      </n-input>
+    <div class="flex gap-4 mb-8 items-center flex-wrap">
+      <div class="relative flex-1 max-w-xl">
+        <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+        <Input
+          v-model="searchQuery"
+          placeholder="Search your images..."
+          class="pl-10 h-11"
+          @keyup="handleKeyPress"
+        />
+      </div>
 
-      <n-space :size="12">
-        <n-button
-          size="large"
+      <div class="flex gap-3">
+        <Button
           @click="handleSearch"
           :disabled="!searchQuery.trim()"
-          type="primary"
-          secondary
+          variant="secondary"
+          size="lg"
         >
           Search
-        </n-button>
+        </Button>
 
-        <n-button
-          size="large"
+        <Button
           @click="loadImages"
-          :loading="loading"
-          circle
+          :disabled="loading"
+          variant="outline"
+          size="lg"
+          class="w-11 p-0"
         >
-          <template #icon>
-            <n-icon>
-              <RefreshOutline />
-            </n-icon>
-          </template>
-        </n-button>
+          <RefreshCcw class="h-5 w-5" :class="{ 'animate-spin': loading }" />
+        </Button>
 
         <!-- View Mode Toggles -->
-        <n-button-group size="large">
-          <n-button
-            :type="viewMode === 'grid' ? 'primary' : 'default'"
+        <div class="flex rounded-md border">
+          <Button
+            :variant="viewMode === 'grid' ? 'default' : 'ghost'"
             @click="viewMode = 'grid'"
+            size="lg"
+            class="rounded-r-none border-r"
           >
-            <template #icon>
-              <n-icon>
-                <GridOutline />
-              </n-icon>
-            </template>
-          </n-button>
-          <n-button
-            :type="viewMode === 'masonry' ? 'primary' : 'default'"
+            <Grid3x3 class="h-5 w-5" />
+          </Button>
+          <Button
+            :variant="viewMode === 'masonry' ? 'default' : 'ghost'"
             @click="viewMode = 'masonry'"
+            size="lg"
+            class="rounded-none border-r"
           >
-            <template #icon>
-              <n-icon>
-                <AppsOutline />
-              </n-icon>
-            </template>
-          </n-button>
-          <n-button
-            :type="viewMode === 'list' ? 'primary' : 'default'"
+            <Grid2x2 class="h-5 w-5" />
+          </Button>
+          <Button
+            :variant="viewMode === 'list' ? 'default' : 'ghost'"
             @click="viewMode = 'list'"
+            size="lg"
+            class="rounded-l-none"
           >
-            <template #icon>
-              <n-icon>
-                <ListOutline />
-              </n-icon>
-            </template>
-          </n-button>
-        </n-button-group>
-      </n-space>
+            <List class="h-5 w-5" />
+          </Button>
+        </div>
+      </div>
     </div>
 
     <!-- Loading State -->
-    <div v-if="imagesStore.loading || loading" class="loading-container">
-      <n-spin size="large" />
-      <n-text style="margin-top: 16px;">Loading images...</n-text>
+    <div v-if="loading && displayedImages.length === 0" class="flex flex-col justify-center items-center min-h-[400px]">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <p class="mt-4 text-muted-foreground">Loading images...</p>
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="displayedImages.length === 0" class="empty-container">
-      <n-empty
-        description="No images in your gallery yet"
-        size="large"
-      >
-        <template #icon>
-          <n-icon size="80" :depth="3">
-            <CloudUploadOutline />
-          </n-icon>
-        </template>
-        <template #extra>
-          <n-space>
-            <n-button @click="loadImages" :loading="loading" size="large">
-              <template #icon>
-                <n-icon>
-                  <RefreshOutline />
-                </n-icon>
-              </template>
-              Refresh
-            </n-button>
-            <n-button type="primary" @click="$router.push('/upload')" size="large">
-              <template #icon>
-                <n-icon>
-                  <CloudUploadOutline />
-                </n-icon>
-              </template>
-              Upload Images
-            </n-button>
-          </n-space>
-        </template>
-      </n-empty>
+    <div v-else-if="displayedImages.length === 0" class="flex flex-col justify-center items-center min-h-[400px]">
+      <Upload class="h-20 w-20 text-muted-foreground/30 mb-4" />
+      <h3 class="text-xl font-semibold mb-2">No images in your gallery yet</h3>
+      <p class="text-muted-foreground mb-6">Start by uploading some images</p>
+      <div class="flex gap-3">
+        <Button @click="loadImages" :disabled="loading" variant="outline">
+          <RefreshCcw class="mr-2 h-4 w-4" />
+          Refresh
+        </Button>
+        <Button @click="router.push('/upload')">
+          <Upload class="mr-2 h-4 w-4" />
+          Upload Images
+        </Button>
+      </div>
     </div>
 
     <!-- Images Grid/Masonry/List -->
-    <div v-else class="images-container">
-      <n-image-group>
-        <!-- Grid/Masonry View -->
-        <n-grid
-          v-if="viewMode !== 'list'"
-          :x-gap="16"
-          :y-gap="16"
-          :cols="gridCols"
-          responsive="screen"
+    <div v-else :class="gridClass">
+      <!-- Grid/Masonry View -->
+      <template v-if="viewMode !== 'list'">
+        <div
+          v-for="(image, index) in displayedImages"
+          :key="image.id"
+          class="group relative overflow-hidden rounded-lg cursor-pointer transition-all hover:-translate-y-2 hover:shadow-xl bg-muted"
+          @click="openLightbox(index)"
         >
-          <n-grid-item v-for="image in displayedImages" :key="image.id">
-            <div class="image-wrapper">
-              <n-image
-                :src="image.thumbnailUrl"
-                :preview-src="image.fullUrl"
-                object-fit="cover"
-                :style="`width: 100%; height: ${imageHeight}; border-radius: 12px;`"
-                lazy
-                show-toolbar-tooltip
-                class="gallery-image"
-              />
-              <div class="image-overlay">
-                <n-text class="image-filename">{{ image.filename }}</n-text>
-              </div>
+          <img
+            :src="image.thumbnailUrl"
+            :alt="image.filename"
+            :class="imageHeight"
+            class="w-full object-cover"
+            loading="lazy"
+          />
+          <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+            <div class="absolute bottom-0 left-0 right-0 p-4">
+              <p class="text-white text-sm font-medium truncate">{{ image.filename }}</p>
             </div>
-          </n-grid-item>
-        </n-grid>
-
-        <!-- List View -->
-        <div v-else class="list-view">
-          <n-card
-            v-for="image in displayedImages"
-            :key="image.id"
-            :bordered="false"
-            class="list-item"
-          >
-            <div class="list-item-content">
-              <n-image
-                :src="image.thumbnailUrl"
-                :preview-src="image.fullUrl"
-                object-fit="cover"
-                style="width: 120px; height: 120px; border-radius: 8px; flex-shrink: 0;"
-                lazy
-                show-toolbar-tooltip
-                class="list-image"
-              />
-              <div class="list-item-info">
-                <n-text strong style="font-size: 16px;">{{ image.filename }}</n-text>
-                <n-text :depth="3" style="margin-top: 8px;">
-                  Uploaded: {{ new Date(image.created_at).toLocaleDateString() }}
-                </n-text>
-                <n-space style="margin-top: 12px;">
-                  <n-badge
-                    :value="image.status"
-                    :type="image.status === 'completed' ? 'success' : 'warning'"
-                  />
-                </n-space>
-              </div>
-            </div>
-          </n-card>
+          </div>
         </div>
-      </n-image-group>
+      </template>
+
+      <!-- List View -->
+      <template v-else>
+        <Card
+          v-for="(image, index) in displayedImages"
+          :key="image.id"
+          class="transition-all hover:translate-x-2 hover:shadow-md cursor-pointer"
+          @click="openLightbox(index)"
+        >
+          <CardContent class="p-4">
+            <div class="flex gap-5 items-center">
+              <img
+                :src="image.thumbnailUrl"
+                :alt="image.filename"
+                class="w-28 h-28 rounded-lg object-cover flex-shrink-0"
+                loading="lazy"
+              />
+              <div class="flex-1 flex flex-col">
+                <p class="font-semibold text-base">{{ image.filename }}</p>
+                <p class="text-muted-foreground text-sm mt-2">
+                  Uploaded: {{ new Date(image.created_at).toLocaleDateString() }}
+                </p>
+                <div class="mt-3">
+                  <Badge :variant="image.status === 'completed' ? 'default' : 'secondary'">
+                    {{ image.status }}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </template>
     </div>
+
+    <!-- Lightbox -->
+    <VueEasyLightbox
+      :visible="visibleRef"
+      :imgs="imagesRef"
+      :index="indexRef"
+      @hide="closeLightbox"
+      :loop="true"
+      :move-disabled="false"
+      :zoom-disabled="false"
+      :rotate-disabled="false"
+    >
+      <template v-slot:toolbar="{ toolbarMethods }">
+        <div class="flex gap-2 flex-wrap justify-center">
+          <!-- Download, Edit & Info -->
+          <button
+            @click="downloadImage"
+            class="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            title="Download Image"
+          >
+            <Download class="h-4 w-4" />
+            <span class="text-sm">Download</span>
+          </button>
+          <button
+            @click="editImage"
+            class="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            title="Edit Image"
+          >
+            <Edit2 class="h-4 w-4" />
+            <span class="text-sm">Edit</span>
+          </button>
+          <button
+            @click="showImageInfo"
+            class="flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            title="Image Details"
+          >
+            <Info class="h-4 w-4" />
+            <span class="text-sm">Info</span>
+          </button>
+
+          <!-- Zoom Controls -->
+          <button
+            @click="toolbarMethods.zoomIn"
+            class="px-3 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-lg font-bold"
+            title="Zoom In"
+          >
+            +
+          </button>
+          <button
+            @click="toolbarMethods.zoomOut"
+            class="px-3 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-lg font-bold"
+            title="Zoom Out"
+          >
+            −
+          </button>
+
+          <!-- Rotate Controls -->
+          <button
+            @click="toolbarMethods.rotateLeft"
+            class="px-3 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-lg"
+            title="Rotate Left"
+          >
+            ↺
+          </button>
+          <button
+            @click="toolbarMethods.rotateRight"
+            class="px-3 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-lg"
+            title="Rotate Right"
+          >
+            ↻
+          </button>
+        </div>
+      </template>
+    </VueEasyLightbox>
   </div>
 </template>
-
-<style scoped>
-.images-page {
-  width: 100%;
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: 0;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 32px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.header-content {
-  flex: 1;
-}
-
-.title-section {
-  display: flex;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.page-title {
-  font-size: 32px;
-  font-weight: 700;
-  letter-spacing: -0.5px;
-}
-
-.page-subtitle {
-  font-size: 16px;
-  opacity: 0.65;
-}
-
-.upload-btn {
-  flex-shrink: 0;
-  margin-left: 24px;
-}
-
-.controls-bar {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 32px;
-  align-items: center;
-}
-
-.search-input {
-  flex: 1;
-  max-width: 600px;
-}
-
-.loading-container,
-.empty-container {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  min-height: 400px;
-}
-
-.images-container {
-  margin-top: 0;
-}
-
-.image-wrapper {
-  position: relative;
-  overflow: hidden;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  background: #f5f5f5;
-}
-
-.image-wrapper:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
-}
-
-.image-wrapper:hover .image-overlay {
-  opacity: 1;
-}
-
-.gallery-image {
-  display: block;
-  width: 100%;
-}
-
-.image-overlay {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, transparent 100%);
-  padding: 16px;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.image-filename {
-  color: white;
-  font-size: 14px;
-  font-weight: 500;
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.list-view {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.list-item {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  cursor: pointer;
-}
-
-.list-item:hover {
-  transform: translateX(8px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.list-item-content {
-  display: flex;
-  gap: 20px;
-  align-items: center;
-}
-
-.list-image {
-  flex-shrink: 0;
-}
-
-.list-item-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .page-header {
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .upload-btn {
-    margin-left: 0;
-    width: 100%;
-  }
-
-  .controls-bar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .search-input {
-    max-width: none;
-  }
-
-  .page-title {
-    font-size: 24px;
-  }
-}
-</style>

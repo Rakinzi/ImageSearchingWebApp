@@ -1,62 +1,59 @@
 <template>
   <div>
     <!-- Page Header -->
-    <div style="margin-bottom: 24px">
-      <n-text tag="h1" :depth="1" style="font-size: 28px; font-weight: 600; margin: 0;">
-        People
-      </n-text>
-      <n-text :depth="3" style="margin-top: 8px; display: block;">
-        Detected faces from your uploaded images
-      </n-text>
+    <div class="mb-6">
+      <h1 class="text-3xl font-bold tracking-tight">People</h1>
+      <p class="text-muted-foreground mt-1">Detected faces from your uploaded images</p>
     </div>
 
     <!-- Loading State -->
-    <div v-if="isLoading" style="display: flex; justify-content: center; align-items: center; min-height: 400px;">
-      <n-spin size="large" />
+    <div v-if="isLoading" class="flex justify-center items-center min-h-[400px]">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
     </div>
 
     <!-- Empty State -->
     <div v-else-if="!faceData || !faceData.face_images || faceData.face_images.length === 0">
-      <n-empty description="No faces detected yet">
-        <template #extra>
-          <n-button @click="ReloadFaceData" :loading="isLoading">
-            Refresh
-          </n-button>
-        </template>
-      </n-empty>
+      <div class="flex flex-col items-center justify-center min-h-[400px]">
+        <Users class="h-20 w-20 text-muted-foreground/30 mb-4" />
+        <h3 class="text-xl font-semibold mb-2">No faces detected yet</h3>
+        <p class="text-muted-foreground mb-6">Upload some images to detect faces</p>
+        <Button @click="ReloadFaceData" :disabled="isLoading">
+          <RefreshCcw class="mr-2 h-4 w-4" />
+          Refresh
+        </Button>
+      </div>
     </div>
 
     <!-- Face Grid -->
     <div v-else>
-      <n-grid :x-gap="16" :y-gap="16" :cols="'1 600:2 900:3 1200:4 1600:5'" responsive="screen">
-        <n-grid-item v-for="faceImage in faceData.face_images" :key="extractIdFromImage(faceImage)">
-          <n-card
-            hoverable
-            @click="goToRelatedImages(extractIdFromImage(faceImage))"
-            style="cursor: pointer; overflow: hidden;"
-          >
-            <n-image
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <Card
+          v-for="faceImage in faceData.face_images"
+          :key="extractIdFromImage(faceImage)"
+          class="cursor-pointer hover:shadow-lg transition-shadow overflow-hidden"
+          @click="goToRelatedImages(extractIdFromImage(faceImage))"
+        >
+          <CardContent class="p-0">
+            <img
               :src="faceImage"
-              object-fit="cover"
-              style="width: 100%; height: 200px; border-radius: 6px;"
-              preview-disabled
-              lazy
-              :fallback-src="'/placeholder-face.png'"
+              alt="Face"
+              class="w-full h-48 object-cover"
+              loading="lazy"
             />
-            <template #footer>
-              <n-text :depth="3" style="font-size: 12px;">
+            <div class="p-3">
+              <p class="text-xs text-muted-foreground">
                 Face ID: {{ extractIdFromImage(faceImage) }}
-              </n-text>
-            </template>
-          </n-card>
-        </n-grid-item>
-      </n-grid>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       <!-- Stats -->
-      <div style="margin-top: 24px; text-align: center;">
-        <n-text :depth="3">
+      <div class="mt-6 text-center">
+        <p class="text-muted-foreground">
           Found {{ faceData.face_images.length }} faces
-        </n-text>
+        </p>
       </div>
     </div>
   </div>
@@ -65,21 +62,12 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import {
-  NText,
-  NSpin,
-  NEmpty,
-  NGrid,
-  NGridItem,
-  NCard,
-  NImage,
-  NButton,
-  useMessage
-} from 'naive-ui';
+import { Users, RefreshCcw } from 'lucide-vue-next';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { useFaceStore } from '../stores/FaceStore';
 
 const router = useRouter();
-const message = useMessage();
 const faceStore = useFaceStore();
 
 const { isLoading, faceData, loadFaceData, error } = faceStore;
@@ -88,10 +76,10 @@ const ReloadFaceData = async () => {
   try {
     await loadFaceData();
     if (faceStore.error) {
-      message.error(faceStore.error);
+      alert(faceStore.error);
     }
   } catch (err) {
-    message.error('Failed to load face data');
+    alert('Failed to load face data');
   }
 };
 

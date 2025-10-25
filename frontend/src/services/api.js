@@ -17,6 +17,19 @@ const api = axios.create(API_CONFIG)
 
 // Auth token management
 let authToken = null
+let isRefreshing = false
+let failedQueue = []
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error)
+    } else {
+      prom.resolve(token)
+    }
+  })
+  failedQueue = []
+}
 
 // Set auth token
 export const setAuthToken = (token) => {
@@ -24,42 +37,116 @@ export const setAuthToken = (token) => {
   if (token) {
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`
     localStorage.setItem('authToken', token)
+    console.log('✅ Auth token set successfully')
   } else {
     delete api.defaults.headers.common['Authorization']
     localStorage.removeItem('authToken')
+    localStorage.removeItem('userData')
+    console.log('🔒 Auth token cleared')
   }
 }
 
-// Initialize token from localStorage
-const savedToken = localStorage.getItem('authToken')
-if (savedToken) {
-  setAuthToken(savedToken)
+// Initialize token from localStorage on app load
+const initializeAuth = () => {
+  const savedToken = localStorage.getItem('authToken')
+  if (savedToken) {
+    setAuthToken(savedToken)
+    console.log('🔑 Auth token loaded from localStorage')
+  }
 }
 
-// Request interceptor
+// Call initialization
+initializeAuth()
+
+// Request interceptor - Add auth token to every request
 api.interceptors.request.use(
   (config) => {
+    // Ensure token is always attached if available
+    const token = localStorage.getItem('authToken')
+    if (token && !config.headers['Authorization']) {
+      config.headers['Authorization'] = `Bearer ${token}`
+    }
+
+    console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`, {
+      hasAuth: !!config.headers['Authorization']
+    })
+
     return config
   },
   (error) => {
+    console.error('❌ Request interceptor error:', error)
     return Promise.reject(error)
   }
 )
 
-// Response interceptor
+// Response interceptor - Handle errors and token refresh
 api.interceptors.response.use(
   (response) => {
+    console.log(`✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, {
+      status: response.status
+    })
     return response
   },
-  (error) => {
-    if (error.response?.status === 401) {
-      // Clear auth token on 401
-      setAuthToken(null)
-      // Redirect to login if needed
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login'
+  async (error) => {
+    const originalRequest = error.config
+
+    console.error(`❌ API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url}`, {
+      status: error.response?.status,
+      message: error.response?.data?.message || error.message
+    })
+
+    // Handle 401 Unauthorized
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true
+
+      // Check if we're already refreshing
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject })
+        }).then(token => {
+          originalRequest.headers['Authorization'] = 'Bearer ' + token
+          return api(originalRequest)
+        }).catch(err => {
+          return Promise.reject(err)
+        })
+      }
+
+      isRefreshing = true
+
+      try {
+        // Try to refresh the token
+        const refreshResponse = await api.post('/api/v1/auth/refresh')
+        const newToken = refreshResponse.data?.data?.access_token || refreshResponse.data?.access_token
+
+        if (newToken) {
+          setAuthToken(newToken)
+          processQueue(null, newToken)
+          originalRequest.headers['Authorization'] = 'Bearer ' + newToken
+          return api(originalRequest)
+        } else {
+          throw new Error('No token received from refresh')
+        }
+      } catch (refreshError) {
+        console.error('🔄 Token refresh failed:', refreshError)
+        processQueue(refreshError, null)
+
+        // Clear auth and redirect to login
+        setAuthToken(null)
+
+        if (window.location.pathname !== '/login' &&
+            window.location.pathname !== '/register' &&
+            window.location.pathname !== '/verify-email') {
+          console.log('🔒 Redirecting to login...')
+          window.location.href = '/login'
+        }
+
+        return Promise.reject(refreshError)
+      } finally {
+        isRefreshing = false
       }
     }
+
+    // Handle other errors
     return Promise.reject(error)
   }
 )

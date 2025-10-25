@@ -10,19 +10,29 @@
     "type-check": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "naive-ui": "^2.39.0",
-    "@vicons/ionicons5": "^0.12.0",
-    "@vicons/tabler": "^0.12.0",
+    "@vueuse/core": "^14.0.0",
     "axios": "^1.7.7",
-    "firebase": "^10.13.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "dayjs": "^1.11.13",
+    "firebase": "^10.13.1",
+    "lucide-vue-next": "^0.546.0",
     "pinia": "^2.2.2",
+    "reka-ui": "^2.6.0",
+    "tailwind-merge": "^3.3.1",
+    "tailwindcss-animate": "^1.0.7",
     "vue": "^3.4.37",
+    "vue-easy-lightbox": "^1.19.0",
     "vue-router": "^4.0.13"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.1.15",
+    "@types/node": "^24.9.1",
     "@vitejs/plugin-vue": "^5.1.2",
     "@vue/tsconfig": "^0.5.1",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.15",
     "typescript": "^5.6.2",
     "vite": "^5.4.1",
     "vue-tsc": "^2.1.6"

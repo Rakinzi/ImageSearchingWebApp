@@ -1,135 +1,229 @@
 <template>
-  <div>
-    <n-upload
-      multiple
-      directory-dnd
-      :max="10"
-      :default-file-list="fileList"
-      :custom-request="customRequest"
-      accept="image/*"
-      @change="handleChange"
-      @remove="handleRemove"
+  <div class="space-y-6">
+    <!-- Drag and Drop Area -->
+    <div
+      @drop.prevent="handleDrop"
+      @dragover.prevent="isDragging = true"
+      @dragleave.prevent="isDragging = false"
+      :class="[
+        'border-2 border-dashed rounded-lg p-12 text-center transition-colors',
+        isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'
+      ]"
     >
-      <n-upload-dragger>
-        <div style="margin-bottom: 12px">
-          <n-icon size="48" :depth="3">
-            <cloud-upload />
-          </n-icon>
+      <Upload class="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
+      <p class="text-base font-medium mb-2">Click or drag images here to upload</p>
+      <p class="text-sm text-muted-foreground">Support PNG, JPG, GIF, WEBP formats. Maximum 10 files.</p>
+      <input
+        ref="fileInput"
+        type="file"
+        multiple
+        accept="image/*"
+        class="hidden"
+        @change="handleFileSelect"
+      />
+      <Button @click="$refs.fileInput.click()" class="mt-4" variant="outline">
+        Select Files
+      </Button>
+    </div>
+
+    <!-- File List -->
+    <div v-if="fileList.length > 0" class="space-y-2">
+      <h3 class="font-semibold">Selected Files ({{ fileList.length }})</h3>
+      <div class="space-y-2">
+        <div
+          v-for="(file, index) in fileList"
+          :key="index"
+          class="flex items-center justify-between p-3 bg-muted rounded-lg"
+        >
+          <div class="flex items-center gap-3">
+            <FileImage class="h-5 w-5 text-muted-foreground" />
+            <span class="text-sm">{{ file.name }}</span>
+          </div>
+          <Button variant="ghost" size="sm" @click="removeFile(index)">
+            <X class="h-4 w-4" />
+          </Button>
         </div>
-        <n-text style="font-size: 16px">
-          Click or drag images here to upload
-        </n-text>
-        <n-p depth="3" style="margin: 8px 0 0 0">
-          Support PNG, JPG, GIF, WEBP formats. Maximum 10 files.
-        </n-p>
-      </n-upload-dragger>
-    </n-upload>
+      </div>
+    </div>
 
-    <n-divider />
+    <Separator />
 
-    <!-- Upload Options -->
-    <n-space vertical>
-      <n-text strong>Processing Options</n-text>
-      <n-checkbox v-model:checked="options.extractText">
-        Extract text from images (OCR)
-      </n-checkbox>
-      <n-checkbox v-model:checked="options.detectFaces">
-        Detect faces in images
-      </n-checkbox>
-      <n-checkbox v-model:checked="options.generateEmbeddings">
-        Generate AI embeddings for search
-      </n-checkbox>
-    </n-space>
+    <!-- Processing Options -->
+    <div class="space-y-4">
+      <div>
+        <h3 class="font-semibold text-base">Processing Options</h3>
+        <p class="text-sm text-muted-foreground mt-1">Select which AI features to apply to your images</p>
+      </div>
 
-    <n-divider />
+      <Card class="bg-muted/30">
+        <CardContent class="p-4 space-y-4">
+          <!-- OCR Option -->
+          <div class="flex items-start space-x-3">
+            <Checkbox id="ocr" v-model:checked="options.extractText" class="mt-1" />
+            <div class="flex-1">
+              <Label for="ocr" class="font-medium cursor-pointer flex items-center gap-2">
+                <FileText class="h-4 w-4" />
+                Extract Text (OCR)
+              </Label>
+              <p class="text-xs text-muted-foreground mt-1">
+                Detect and extract text from images using optical character recognition
+              </p>
+            </div>
+          </div>
+
+          <!-- Face Detection Option -->
+          <div class="flex items-start space-x-3">
+            <Checkbox id="faces" v-model:checked="options.detectFaces" class="mt-1" />
+            <div class="flex-1">
+              <Label for="faces" class="font-medium cursor-pointer flex items-center gap-2">
+                <User class="h-4 w-4" />
+                Detect Faces
+              </Label>
+              <p class="text-xs text-muted-foreground mt-1">
+                Identify and analyze faces with age, gender, and emotion detection
+              </p>
+            </div>
+          </div>
+
+          <!-- Embeddings Option -->
+          <div class="flex items-start space-x-3">
+            <Checkbox id="embeddings" v-model:checked="options.generateEmbeddings" class="mt-1" />
+            <div class="flex-1">
+              <Label for="embeddings" class="font-medium cursor-pointer flex items-center gap-2">
+                <Search class="h-4 w-4" />
+                Generate AI Embeddings
+              </Label>
+              <p class="text-xs text-muted-foreground mt-1">
+                Create AI-powered embeddings for semantic search and similarity matching
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <!-- Feature Info Alerts -->
+      <Alert v-if="!options.extractText && !options.detectFaces && !options.generateEmbeddings" variant="default">
+        <AlertCircle class="h-4 w-4" />
+        <AlertTitle>All processing disabled</AlertTitle>
+        <AlertDescription>
+          Images will be uploaded but no AI processing will occur. You can reprocess images later.
+        </AlertDescription>
+      </Alert>
+
+      <Alert v-else-if="options.extractText || options.detectFaces || options.generateEmbeddings">
+        <Info class="h-4 w-4" />
+        <AlertTitle>Processing enabled</AlertTitle>
+        <AlertDescription>
+          Selected features will be applied in the background. You can view results once processing completes.
+        </AlertDescription>
+      </Alert>
+    </div>
+
+    <Separator />
 
     <!-- Metadata Input -->
-    <n-form :model="metadata" label-placement="left" label-width="120px">
-      <n-form-item label="Tags">
-        <n-dynamic-tags v-model:value="metadata.tags" />
-      </n-form-item>
-      <n-form-item label="Description">
-        <n-input
-          v-model:value="metadata.description"
-          type="textarea"
-          :rows="3"
-          placeholder="Optional description for these images"
+    <div class="space-y-4">
+      <h3 class="font-semibold">Optional Metadata</h3>
+
+      <div class="space-y-2">
+        <Label for="tags">Tags</Label>
+        <Input
+          id="tags"
+          v-model="tagsInput"
+          placeholder="Enter tags separated by commas"
+          @blur="processTags"
         />
-      </n-form-item>
-      <n-form-item label="Location">
-        <n-input
-          v-model:value="metadata.location"
+        <div v-if="metadata.tags.length > 0" class="flex gap-2 flex-wrap mt-2">
+          <Badge v-for="(tag, index) in metadata.tags" :key="index" variant="secondary">
+            {{ tag }}
+            <button @click="removeTag(index)" class="ml-1 hover:text-destructive">
+              <X class="h-3 w-3" />
+            </button>
+          </Badge>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <Label for="description">Description</Label>
+        <textarea
+          id="description"
+          v-model="metadata.description"
+          placeholder="Optional description for these images"
+          rows="3"
+          class="w-full px-3 py-2 text-sm rounded-md border border-input bg-background"
+        />
+      </div>
+
+      <div class="space-y-2">
+        <Label for="location">Location</Label>
+        <Input
+          id="location"
+          v-model="metadata.location"
           placeholder="e.g., Paris, France"
         />
-      </n-form-item>
-    </n-form>
+      </div>
+    </div>
 
     <!-- Progress -->
-    <div v-if="uploading">
-      <n-divider />
-      <n-progress
-        type="line"
-        :percentage="uploadProgress"
-        :status="uploadProgress === 100 ? 'success' : 'default'"
-      />
-      <n-text depth="3" style="margin-top: 8px; display: block">
-        {{ uploadStatus }}
-      </n-text>
+    <div v-if="uploading" class="space-y-2">
+      <Separator />
+      <div class="w-full bg-muted rounded-full h-2">
+        <div
+          class="bg-primary h-2 rounded-full transition-all duration-300"
+          :style="{ width: `${uploadProgress}%` }"
+        ></div>
+      </div>
+      <p class="text-sm text-muted-foreground">{{ uploadStatus }}</p>
     </div>
 
     <!-- Action Buttons -->
-    <n-divider />
-    <n-space justify="end">
-      <n-button @click="$emit('close')" :disabled="uploading">
+    <Separator />
+    <div class="flex justify-end gap-3">
+      <Button @click="$emit('close')" :disabled="uploading" variant="outline">
         Cancel
-      </n-button>
-      <n-button
-        type="primary"
+      </Button>
+      <Button
         @click="startUpload"
         :disabled="fileList.length === 0 || uploading"
-        :loading="uploading"
       >
-        Upload {{ fileList.length }} {{ fileList.length === 1 ? 'Image' : 'Images' }}
-      </n-button>
-    </n-space>
+        <span v-if="uploading" class="flex items-center">
+          <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+          Uploading...
+        </span>
+        <span v-else>
+          Upload {{ fileList.length }} {{ fileList.length === 1 ? 'Image' : 'Images' }}
+        </span>
+      </Button>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, watchEffect } from 'vue'
-import {
-  NUpload,
-  NUploadDragger,
-  NIcon,
-  NText,
-  NP,
-  NDivider,
-  NSpace,
-  NCheckbox,
-  NForm,
-  NFormItem,
-  NInput,
-  NDynamicTags,
-  NProgress,
-  NButton,
-  useMessage,
-  useNotification
-} from 'naive-ui'
-import { CloudUpload } from '@vicons/ionicons5'
+import { ref, reactive, watch } from 'vue'
+import { Upload, FileImage, X, FileText, User, Search, AlertCircle, Info } from 'lucide-vue-next'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
 import { useImagesStore } from '../stores/imagesStore.js'
 
 const emit = defineEmits(['close', 'upload-complete'])
 
 // Composables
-const message = useMessage()
-const notification = useNotification()
 const imagesStore = useImagesStore()
 
 // Reactive state
+const fileInput = ref(null)
 const fileList = ref([])
+const isDragging = ref(false)
 const uploading = ref(false)
 const uploadProgress = ref(0)
 const uploadStatus = ref('')
+const tagsInput = ref('')
 
 // Upload options
 const options = reactive({
@@ -146,24 +240,46 @@ const metadata = reactive({
 })
 
 // File handling
-const handleChange = (data) => {
-  fileList.value = data.fileList
+const handleFileSelect = (event) => {
+  const files = Array.from(event.target.files)
+  addFiles(files)
 }
 
-const handleRemove = (data) => {
-  return true // Allow removal
+const handleDrop = (event) => {
+  isDragging.value = false
+  const files = Array.from(event.dataTransfer.files).filter(file => file.type.startsWith('image/'))
+  addFiles(files)
 }
 
-const customRequest = ({ file, onFinish, onError, onProgress }) => {
-  // We'll handle the actual upload in startUpload
-  // This just prevents automatic upload
-  onFinish()
+const addFiles = (files) => {
+  const newFiles = files.slice(0, 10 - fileList.value.length)
+  fileList.value.push(...newFiles)
+  if (fileList.value.length > 10) {
+    fileList.value = fileList.value.slice(0, 10)
+    alert('Maximum 10 files allowed')
+  }
+}
+
+const removeFile = (index) => {
+  fileList.value.splice(index, 1)
+}
+
+const processTags = () => {
+  if (tagsInput.value.trim()) {
+    const newTags = tagsInput.value.split(',').map(t => t.trim()).filter(t => t)
+    metadata.tags = [...new Set([...metadata.tags, ...newTags])]
+    tagsInput.value = ''
+  }
+}
+
+const removeTag = (index) => {
+  metadata.tags.splice(index, 1)
 }
 
 // Upload functionality
 const startUpload = async () => {
   if (fileList.value.length === 0) {
-    message.warning('Please select at least one image')
+    alert('Please select at least one image')
     return
   }
 
@@ -171,9 +287,6 @@ const startUpload = async () => {
 
   try {
     uploadStatus.value = 'Preparing upload...'
-
-    // Prepare files array
-    const files = fileList.value.map(fileItem => fileItem.file)
 
     // Prepare upload options
     const uploadOptions = {
@@ -189,10 +302,10 @@ const startUpload = async () => {
     }
 
     // Use the images store to upload
-    const uploadedImages = await imagesStore.uploadImages(files, uploadOptions)
+    const uploadedImages = await imagesStore.uploadImages(fileList.value, uploadOptions)
 
     // Update progress from store
-    uploadProgress.value = imagesStore.uploadProgress
+    uploadProgress.value = 100
     uploadStatus.value = 'Upload completed successfully!'
 
     // Emit success event
@@ -201,7 +314,7 @@ const startUpload = async () => {
       data: uploadedImages
     })
 
-    message.success(`Successfully uploaded ${uploadedImages.length} images`)
+    alert(`Successfully uploaded ${uploadedImages.length} images`)
 
     // Reset form
     setTimeout(() => {
@@ -214,12 +327,7 @@ const startUpload = async () => {
     uploadStatus.value = 'Upload failed'
     uploadProgress.value = 0
 
-    message.error(error.message || 'Failed to upload images')
-    notification.error({
-      title: 'Upload Failed',
-      content: error.message || 'Failed to upload images',
-      duration: 5000
-    })
+    alert(error.message || 'Failed to upload images')
   } finally {
     uploading.value = false
   }
@@ -232,16 +340,13 @@ const resetForm = () => {
   metadata.tags = []
   metadata.description = ''
   metadata.location = ''
+  tagsInput.value = ''
 }
 
 // Watch for upload progress from store
-watchEffect(() => {
-  if (imagesStore.uploading) {
+watch(() => imagesStore.uploading, (newVal) => {
+  if (newVal) {
     uploadProgress.value = imagesStore.uploadProgress
   }
 })
 </script>
-
-<style scoped>
-/* Naive UI handles most styling, minimal custom styles needed */
-</style>

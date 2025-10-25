@@ -1,39 +1,29 @@
 <template>
-  <div>
-    <n-space vertical :size="24">
-      <!-- Page Header -->
-      <div>
-        <n-text tag="h1" :depth="1" style="font-size: 28px; font-weight: 600; margin: 0;">
-          Upload Images
-        </n-text>
-        <n-text :depth="3" style="margin-top: 8px; display: block;">
-          Upload your images for processing and analysis
-        </n-text>
-      </div>
+  <div class="space-y-6">
+    <!-- Page Header -->
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight">Upload Images</h1>
+      <p class="text-muted-foreground mt-1">Upload your images for processing and analysis</p>
+    </div>
 
-      <!-- Upload Component -->
-      <n-card>
+    <!-- Upload Component -->
+    <Card>
+      <CardContent class="p-6">
         <upload-component @upload-complete="handleUploadComplete" />
-      </n-card>
-    </n-space>
+      </CardContent>
+    </Card>
   </div>
 </template>
 
 <script setup>
-import { NSpace, NText, NCard, useMessage, useNotification } from 'naive-ui'
+import { Card, CardContent } from '@/components/ui/card'
 import UploadComponent from '../components/UploadComponent.vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
-const message = useMessage()
-const notification = useNotification()
 
 const handleUploadComplete = (result) => {
-  notification.success({
-    title: 'Upload Successful',
-    content: `Successfully uploaded ${result.count} images`,
-    duration: 3000
-  })
+  alert(`Successfully uploaded ${result.count} images`)
 
   // Optionally redirect to images page after upload
   setTimeout(() => {
@@ -41,4 +31,3 @@ const handleUploadComplete = (result) => {
   }, 2000)
 }
 </script>
-  

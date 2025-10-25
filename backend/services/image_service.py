@@ -71,19 +71,28 @@ class ImageService:
             try:
                 # Extract text from image if requested
                 if extract_text:
-                    logger.info(f"Text extraction requested for image {image_id} (not yet implemented)")
-                    # TODO: Implement OCR text extraction
-                    # from utils.ocr import extract_text_from_image
-                    # extracted_text = extract_text_from_image(image_data)
-                    # image.extracted_text = extracted_text
+                    try:
+                        from utils.ocr import extract_text_from_image
+                        extracted_text = extract_text_from_image(image.file_path)
+                        if extracted_text:
+                            image.extracted_text = extracted_text
+                            logger.info(f"Text extraction completed for image {image_id}: {len(extracted_text)} characters")
+                        else:
+                            logger.info(f"No text found in image {image_id}")
+                    except Exception as ocr_error:
+                        logger.warning(f"Text extraction failed for image {image_id}: {str(ocr_error)}")
+                        # Don't fail the entire image processing if OCR fails
 
                 # Detect faces if requested
                 if detect_faces:
-                    logger.info(f"Face detection requested for image {image_id} (not yet implemented)")
-                    # TODO: Implement face detection
-                    # from services.face_service import FaceService
-                    # face_service = FaceService()
-                    # faces = face_service.detect_faces(image_data, image_id)
+                    try:
+                        from services.face_service import FaceService
+                        face_service = FaceService()
+                        face_results = face_service.process_image_faces(image_id)
+                        logger.info(f"Face detection completed for image {image_id}: {face_results['faces_detected']} detected, {face_results['faces_processed']} processed")
+                    except Exception as face_error:
+                        logger.warning(f"Face detection failed for image {image_id}: {str(face_error)}")
+                        # Don't fail the entire image processing if face detection fails
 
                 # Generate embeddings if requested
                 if generate_embeddings:
@@ -102,7 +111,8 @@ class ImageService:
                         'created_at': image.created_at.isoformat()
                     }
 
-                    vector_id = f"img_{image.id}_{image.user_id}"
+                    # Use standardized ID format: just the image ID as string
+                    vector_id = str(image.id)
 
                     if not self.vector_service.store_image_vector(vector_id, embedding, metadata):
                         image.mark_processing_failed("Failed to store vector embedding")
@@ -144,8 +154,9 @@ class ImageService:
             for result in results:
                 try:
                     vector_id = result['id']
-                    image_id = int(vector_id.split('_')[1])
-                    
+                    # Vector ID is now just the image ID as a string
+                    image_id = int(vector_id)
+
                     image = Image.query.get(image_id)
                     if image and image.user_id == user_id:
                         image_data = {
@@ -154,7 +165,7 @@ class ImageService:
                             'metadata': result['metadata']
                         }
                         image_results.append(image_data)
-                
+
                 except (ValueError, IndexError) as e:
                     logger.warning(f"Invalid vector ID format: {result['id']}")
                     continue
@@ -191,11 +202,12 @@ class ImageService:
             for result in results:
                 try:
                     vector_id = result['id']
-                    similar_image_id = int(vector_id.split('_')[1])
-                    
+                    # Vector ID is now just the image ID as a string
+                    similar_image_id = int(vector_id)
+
                     if similar_image_id == image_id:
                         continue
-                    
+
                     similar_image = Image.query.get(similar_image_id)
                     if similar_image and similar_image.user_id == user_id:
                         similar_images.append({
@@ -203,7 +215,7 @@ class ImageService:
                             'similarity_score': result['similarity'],
                             'metadata': result['metadata']
                         })
-                
+
                 except (ValueError, IndexError):
                     continue
             

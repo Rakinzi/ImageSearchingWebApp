@@ -50,6 +50,13 @@ sentence-transformers
 spacy
 nltk
 
+# OCR (Optical Character Recognition)
+# Install at least one of these:
+# pytesseract  # Requires tesseract binary installed
+easyocr  # Best accuracy, GPU recommended
+# paddleocr  # Fast and accurate
+# paddlepaddle  # Required for paddleocr
+
 # Utilities
 geopy
 python-dotenv

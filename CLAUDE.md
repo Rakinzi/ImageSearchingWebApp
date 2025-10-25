@@ -4,17 +4,56 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-### Frontend (Vue.js + Vite + Naive UI)
+### Frontend (Vue.js 3 + Vite + shadcn-vue)
 ```bash
 cd frontend
-npm install       # Install dependencies (Naive UI, icons, etc.)
-npm run dev       # Start development server
+npm install       # Install dependencies
+npm run dev       # Start development server (http://localhost:5173)
 npm run build     # Build for production
 npm run preview   # Preview production build
 npm run type-check # Type checking with Vue TSC
 ```
 
 ### Backend (Flask + Python)
+
+#### Docker Setup (Recommended)
+```bash
+cd backend
+
+# Start all services (PostgreSQL, Redis, RabbitMQ, Flask app, Celery worker)
+docker-compose -f docker-compose.simple.yml up --build -d
+
+# Initialize database (first time only)
+docker-compose -f docker-compose.simple.yml exec --user root app flask db init
+docker-compose -f docker-compose.simple.yml exec --user root app flask db migrate -m "Initial migration"
+docker-compose -f docker-compose.simple.yml exec --user root app flask db upgrade
+
+# View logs
+docker-compose -f docker-compose.simple.yml logs -f app
+docker-compose -f docker-compose.simple.yml logs -f celery-worker
+
+# Restart services after code changes (no dependency changes)
+docker-compose -f docker-compose.simple.yml restart app
+
+# Rebuild after dependency changes
+docker-compose -f docker-compose.simple.yml up --build app
+
+# Database migrations
+docker-compose -f docker-compose.simple.yml exec --user root app flask db migrate -m "Description"
+docker-compose -f docker-compose.simple.yml exec --user root app flask db upgrade
+docker-compose -f docker-compose.simple.yml exec --user root app flask db downgrade
+docker-compose -f docker-compose.simple.yml exec --user root app flask db history
+
+# Reset database (⚠️ deletes all data)
+docker-compose -f docker-compose.simple.yml down && \
+docker volume rm backend_postgresql_data && \
+docker-compose -f docker-compose.simple.yml up --build -d && \
+docker-compose -f docker-compose.simple.yml exec --user root app flask db init && \
+docker-compose -f docker-compose.simple.yml exec --user root app flask db migrate -m "Fresh start" && \
+docker-compose -f docker-compose.simple.yml exec --user root app flask db upgrade
+```
+
+#### Manual Setup (Alternative)
 ```bash
 cd backend
 
@@ -32,133 +71,148 @@ flask db init
 flask db migrate -m "Initial migration"
 flask db upgrade
 
-# Start services
+# Start services in separate terminals
 python main.py              # Main Flask server (port 8080)
 celery -A main.celery worker --loglevel=info --pool=solo  # Task worker
 ```
 
-### Docker Deployment
+#### Testing ML Features
 ```bash
 cd backend
 
-# CPU-only version (recommended for most setups)
-docker-compose -f docker-compose.simple.yml up -d
+# Test image embeddings with CLIP
+python utils/test_embeddings.py
 
-# GPU version (requires NVIDIA Docker runtime)
-docker-compose up -d
+# Test face detection
+python utils/test_face_detection.py
 
-# View logs
-docker-compose logs -f app
-docker-compose logs -f celery-worker
+# Test OCR functionality
+python utils/test_ocr.py
+
+# Migrate embeddings between models
+python utils/migrate_embeddings.py
 ```
 
-**Prerequisites:**
-- Python 3.11 (required for backend)
-- Node.js 16.x+ and npm (for frontend)
-- RabbitMQ server (for Celery task queue)
-- CMake (Windows only)
-
-## Frontend Upgrade (v2)
-
-The frontend has been completely modernized with Naive UI:
-
-### Modern Frontend Features
-- **Component Library**: Naive UI - stable, well-maintained Vue 3 component library
-- **Zero Custom Components**: All UI elements use Naive UI components exclusively
-- **TypeScript Support**: Full TypeScript integration with Vue TSC
-- **Modern Dependencies**: Removed legacy packages (Tailwind, Dropzone, Vuex, etc.)
-- **Clean Architecture**: Simplified structure using only proven, stable libraries
-
-### Key Changes
-- **Replaced**: TailwindCSS → Naive UI styling system
-- **Replaced**: Custom components → Naive UI components only
-- **Replaced**: Moment.js → Day.js (lighter alternative)
-- **Replaced**: Vuex → Pinia (already in use)
-- **Removed**: All custom styling and CSS files
-- **Added**: TypeScript support and type checking
-- **Added**: Modern icon system (@vicons)
-
-### Component Structure
-- **App.vue**: Main layout using Naive UI layout components
-- **UploadComponent.vue**: File upload using n-upload with drag-and-drop
-- **Views**: All views use only Naive UI components
-- **No Custom Components**: Everything uses stable, documented Naive UI components
+### Prerequisites
+- **Docker & Docker Compose** (recommended)
+- **Python 3.11** (required for backend)
+- **Node.js 16.x+** and npm (for frontend)
+- **RabbitMQ** (for Celery, included in Docker setup)
+- **PostgreSQL 15** (included in Docker setup)
+- **Redis** (for caching, included in Docker setup)
 
 ## Architecture Overview
 
 This is an **Image Search Web Application** with separate frontend and backend services:
 
 ### Backend Architecture
-- **Framework**: Flask with modular blueprint structure
-- **API**: RESTful API under `/api/v1` prefix
-- **Database**: SQLAlchemy ORM with Flask-Migrate for schema management
+- **Framework**: Flask 3.0 with modular blueprint structure
+- **API**: RESTful API with two versions
+  - `/api/v1/` - Legacy endpoints (backward compatibility)
+  - `/api/v2/` - Modern endpoints with enhanced features and type safety
+- **Database**: PostgreSQL 15 with SQLAlchemy ORM and Flask-Migrate for schema management
 - **Authentication**: JWT-based auth with Flask-JWT-Extended
 - **Task Queue**: Celery with RabbitMQ for background image processing
+- **Cache**: Redis for session management and caching
 - **AI/ML Stack**:
-  - OpenAI CLIP for image embeddings
-  - Face recognition (facenet-pytorch, deepface)
-  - NLP processing (spacy, sentence-transformers)
-  - Vector database (ChromaDB)
+  - OpenAI CLIP for image embeddings and semantic search
+  - FaceNet (facenet-pytorch) and DeepFace for face recognition
+  - spaCy (en_core_web_lg) and sentence-transformers for NLP processing
+  - ChromaDB for vector database and similarity search
+  - TensorFlow CPU for ML operations
+  - OCR capabilities for text extraction from images
 - **Key Directories**:
-  - `api/` - REST API endpoints organized by version
-  - `models/` - SQLAlchemy database models
+  - `api/` - REST API endpoints organized by version (v1, v2)
+  - `models/` - SQLAlchemy database models (both legacy and modern)
   - `services/` - Business logic and AI processing services
   - `tasks/` - Celery background tasks for image/face processing
-  - `middleware/` - Auth, rate limiting, audit logging
-  - `config/` - Configuration management
+  - `middleware/` - Auth, rate limiting, audit logging, security headers
+  - `config/` - Configuration management (settings.py, modern_settings.py)
+  - `utils/` - Utilities, validators, testing scripts, and helpers
+
+### Backend API Versions
+- **v1 API**: Original endpoints for backward compatibility
+- **v2 API**: Modern API with:
+  - Pydantic validation for request/response models
+  - Comprehensive error handling with structured responses
+  - Type hints throughout
+  - Enhanced search capabilities (semantic, text, metadata, hybrid)
+  - Better status tracking for async operations
 
 ### Frontend Architecture
-- **Framework**: Vue.js 3 with Composition API and TypeScript support
-- **UI Library**: Naive UI (stable component library similar to shadcn for React)
-- **Build Tool**: Vite for fast development and building
-- **State Management**: Pinia stores (authStore, FaceStore, etc.)
+- **Framework**: Vue.js 3 with Composition API
+- **UI Library**: **shadcn-vue** (NOT Naive UI) - Modern component library built on:
+  - Reka UI (headless UI primitives)
+  - Tailwind CSS 4.x for styling
+  - Lucide icons (lucide-vue-next)
+- **Build Tool**: Vite 5 for fast development and building
+- **State Management**: Pinia stores
+  - `authStore` - Authentication and user session
+  - `imagesStore` - Image gallery and search
+  - `FaceStore` - Face detection and clustering
 - **Routing**: Vue Router for SPA navigation
-- **Icons**: @vicons/ionicons5 and @vicons/tabler
+- **TypeScript**: Full TypeScript support with vue-tsc type checking
 - **Key Features**:
-  - Modern component-only architecture using Naive UI
-  - Built-in dark/light theme support
-  - Responsive design with grid system
+  - Component-based architecture using shadcn-vue components
+  - Built-in dark/light theme support via Tailwind CSS variables
+  - Responsive design with Tailwind grid system
   - Advanced form validation and file upload
-  - No custom CSS needed - all styling handled by Naive UI
+  - All UI styling via Tailwind CSS utility classes
+
+### Component Structure (shadcn-vue)
+All UI components are in `frontend/src/components/ui/`:
+- Button, Input, Card, Badge
+- Dialog, Sheet, Dropdown Menu
+- Alert, Checkbox, Label, Separator
+- Configured via `components.json` with "new-york" style
+- Add new components: `npx shadcn-vue@latest add <component-name>`
 
 ### Communication
 - Frontend communicates with backend via REST API calls
 - Backend processes images asynchronously using Celery workers
 - Real-time updates handled through standard HTTP polling
-
-## Backend Upgrade (v2)
-
-The backend has been modernized with enhanced patterns and functionality:
-
-### Modern Architecture Features
-- **Type Safety**: Full type hints and Pydantic validation
-- **Modern API Patterns**: Structured responses, comprehensive error handling
-- **Enhanced Models**: Modern SQLAlchemy patterns with hybrid properties and validation
-- **Advanced Search**: Semantic, text, metadata, and hybrid search capabilities
-- **Async Processing**: Background task processing with comprehensive status tracking
-
-### API Versions
-- **v1 API**: Original endpoints at `/api/v1/` (legacy compatibility)
-- **v2 API**: Modern endpoints at `/api/v2/` with enhanced features
-
-### Configuration
-- **Legacy Config**: `config/settings.py` (original configuration)
-- **Modern Config**: `config/modern_settings.py` (Pydantic-based with validation)
-
-### Models
-- **Legacy Models**: Original models in `models/` directory
-- **Modern Models**: Enhanced models like `models/modern_image.py` with type safety
-
-### Services
-- **Enhanced Services**: `services/modern_image_service.py` with advanced functionality
-- **Response Utilities**: `utils/responses.py` for consistent API responses
+- API base URL: `http://localhost:8080` (configurable via VITE_API_URL)
 
 ## Key Technical Details
 
-- **GPU Support**: Backend includes both GPU and CPU-only configurations for ML models
-- **Security**: Rate limiting, CORS, security headers, audit logging, enhanced error handling
-- **Monitoring**: Health check endpoint (`/health`) with component status and Prometheus metrics (`/metrics`)
-- **Image Processing**: Supports EXIF data extraction, geolocation, ML-based analysis, and semantic search
-- **Development vs Production**: Environment-specific configurations with validation
-- **Type Safety**: Comprehensive type hints and runtime validation
-- **API Documentation**: Auto-generated OpenAPI/Swagger documentation for both API versions
+### Backend
+- **GPU Support**: Includes both GPU and CPU-only configurations for ML models
+  - `docker-compose.simple.yml` - CPU-only (recommended for most setups)
+  - `docker-compose.yml` - GPU-enabled (requires NVIDIA Docker runtime)
+- **Security**: Rate limiting, CORS, security headers, audit logging, JWT validation
+- **Monitoring**:
+  - Health check: `GET /health` (component status)
+  - Metrics: `GET /metrics` (Prometheus format)
+- **Image Processing**: EXIF data extraction, geolocation, ML-based analysis, semantic search
+- **Database Migrations**: Flask-Migrate for schema versioning and changes
+- **Type Safety**: Pydantic models for v2 API with runtime validation
+- **Configuration**: Environment-specific settings with validation
+- **Package Manager**: UV (ultra-fast Python package installer) in Docker setup
+
+### Frontend
+- **Styling System**: Tailwind CSS 4.x with custom design tokens
+- **CSS Variables**: Theme colors defined in `src/style.css` (`:root` and `.dark`)
+- **Icon Library**: Lucide icons via `lucide-vue-next`
+- **File Uploads**: Drag-and-drop with progress tracking
+- **Authentication**: JWT token stored in authStore, included in API requests
+- **Environment Variables**: Configure API URL via `.env.development`
+
+### Development Workflow
+1. **Start backend**: Run Docker Compose or manual Flask + Celery setup
+2. **Start frontend**: Run `npm run dev` in frontend directory
+3. **Hot reload**: Frontend auto-reloads on changes, backend requires restart
+4. **Database changes**: Create migration → Apply migration → Restart app
+5. **Testing ML features**: Use test scripts in `backend/utils/` directory
+
+### Access Points
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:8080
+- **API Docs**: http://localhost:8080/api/v2/docs (OpenAPI/Swagger)
+- **Health Check**: http://localhost:8080/health
+- **RabbitMQ Management**: http://localhost:15672 (admin/secure_rabbit_password)
+
+### Common Issues
+- **Permission errors in Docker**: Use `--user root` for flask db commands
+- **Frontend can't connect**: Check `VITE_API_URL` in frontend `.env.development`
+- **Database connection**: Verify PostgreSQL is healthy with `docker-compose ps`
+- **Image processing stuck**: Check Celery worker logs for errors

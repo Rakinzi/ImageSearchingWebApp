@@ -510,9 +510,19 @@ class ModernImageService:
     def _extract_text_content(self, file_path: Path) -> Optional[str]:
         """Extract text content from image using OCR."""
         try:
-            # Placeholder for OCR implementation
-            # You would integrate with Tesseract, Google Vision API, etc.
-            return None
+            from utils.ocr import extract_text_from_image
+
+            extracted_text = extract_text_from_image(str(file_path))
+
+            if extracted_text:
+                logger.info("Text extracted from image",
+                           file_path=str(file_path),
+                           text_length=len(extracted_text))
+            else:
+                logger.debug("No text found in image",
+                            file_path=str(file_path))
+
+            return extracted_text
 
         except Exception as e:
             logger.warning("Failed to extract text content",
@@ -523,9 +533,31 @@ class ModernImageService:
     def _detect_and_store_faces(self, image: ModernImage, file_path: Path) -> None:
         """Detect faces and store face data."""
         try:
-            # Placeholder for face detection implementation
-            # You would integrate with face_recognition library or similar
-            pass
+            from services.face_service import FaceService
+            from models.image import Image
+
+            # Face service currently works with Image table (v1)
+            # We need to check if there's a corresponding legacy image or process as modern
+            legacy_image = Image.query.filter_by(
+                user_id=image.user_id,
+                checksum=image.checksum
+            ).first()
+
+            if legacy_image:
+                # Use legacy image for face detection
+                face_service = FaceService()
+                face_results = face_service.process_image_faces(legacy_image.id)
+                logger.info("Face detection completed for modern image via legacy",
+                           image_id=image.id,
+                           legacy_id=legacy_image.id,
+                           faces_detected=face_results.get('faces_detected', 0),
+                           faces_processed=face_results.get('faces_processed', 0))
+            else:
+                # For pure modern images, face detection will be skipped
+                # until Face model supports modern_image_id directly
+                logger.info("Skipping face detection for pure modern image",
+                           image_id=image.id,
+                           reason="No legacy image mapping")
 
         except Exception as e:
             logger.warning("Failed to detect faces",
