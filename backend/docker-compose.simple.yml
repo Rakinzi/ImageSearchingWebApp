@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   postgresql:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15
     container_name: image_search_postgresql
     restart: unless-stopped
     environment:
@@ -13,6 +13,7 @@ services:
       - "5432:5432"
     volumes:
       - postgresql_data:/var/lib/postgresql/data
+      - ./init-pgvector.sql:/docker-entrypoint-initdb.d/init-pgvector.sql
     networks:
       - backend_network
     healthcheck:

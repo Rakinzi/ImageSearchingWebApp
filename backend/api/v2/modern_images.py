@@ -412,6 +412,180 @@ def search_images(search_data: Dict[str, Any], current_user):
         )
 
 
+@upload_bp.route('/test-search', methods=['POST'])
+@limiter.limit("100 per minute")
+def test_search_images():
+    """
+    Public test endpoint for image search - NO AUTHENTICATION REQUIRED.
+
+    Test your image search functionality without auth.
+
+    Request body (JSON):
+    {
+        "query": "your search query",
+        "search_type": "semantic|text|metadata|hybrid",
+        "limit": 20,
+        "similarity_threshold": 0.3
+    }
+
+    Returns images with similarity scores and full URLs for testing.
+    """
+    try:
+        # Parse request
+        from flask import request
+        data = request.get_json()
+
+        if not data or 'query' not in data:
+            return jsonify({
+                'error': 'MissingQuery',
+                'message': 'Query parameter is required',
+                'example': {
+                    'query': 'tea cup',
+                    'search_type': 'semantic',
+                    'limit': 20,
+                    'similarity_threshold': 0.3
+                }
+            }), 400
+
+        query = data['query']
+        search_type = data.get('search_type', 'semantic')
+        limit = data.get('limit', 20)
+        similarity_threshold = data.get('similarity_threshold', 0.3)
+
+        logger.info("Test search initiated",
+                   query=query,
+                   search_type=search_type)
+
+        # Get all users' images for testing (you can limit to specific test user if needed)
+        # For now, we'll search across all images
+        from models.modern_image import ModernImage
+
+        if search_type == 'semantic':
+            # Semantic search across all users
+            from services.vector_service import VectorService
+            vector_service = VectorService()
+
+            # Use text_to_image_search which handles everything
+            similar_results = vector_service.text_to_image_search(
+                query,
+                limit=limit * 2,  # Get more to filter
+                similarity_threshold=similarity_threshold
+            )
+
+            # Get corresponding images
+            results = []
+            for result in similar_results:
+                vector_id = result['id']
+                similarity = result['similarity']
+
+                image = ModernImage.query.filter_by(
+                    vector_id=vector_id,
+                    status=ImageStatus.COMPLETED
+                ).first()
+
+                if image:
+                    results.append({
+                        'id': image.id,
+                        'filename': image.filename,
+                        'original_filename': image.original_filename,
+                        'similarity_score': float(similarity),
+                        'created_at': image.created_at.isoformat() if image.created_at else None,
+                        'file_size': image.file_size,
+                        'width': image.width,
+                        'height': image.height,
+                        'location': image.location,
+                        'extracted_text': image.extracted_text[:100] + '...' if image.extracted_text and len(image.extracted_text) > 100 else image.extracted_text,
+                        'thumbnail_url': f'/api/v2/images/{image.id}/thumbnail',
+                        'image_url': f'/api/v2/images/{image.id}/file'
+                    })
+
+                    if len(results) >= limit:
+                        break
+
+        elif search_type == 'text':
+            # Text search (OCR)
+            images = ModernImage.query.filter(
+                ModernImage.extracted_text.like(f'%{query}%'),
+                ModernImage.status == ImageStatus.COMPLETED
+            ).limit(limit).all()
+
+            results = [{
+                'id': img.id,
+                'filename': img.filename,
+                'original_filename': img.original_filename,
+                'similarity_score': 1.0,
+                'created_at': img.created_at.isoformat() if img.created_at else None,
+                'file_size': img.file_size,
+                'width': img.width,
+                'height': img.height,
+                'location': img.location,
+                'extracted_text': img.extracted_text[:100] + '...' if img.extracted_text and len(img.extracted_text) > 100 else img.extracted_text,
+                'thumbnail_url': f'/api/v2/images/{img.id}/thumbnail',
+                'image_url': f'/api/v2/images/{img.id}/file'
+            } for img in images]
+
+        elif search_type == 'metadata':
+            # Metadata search
+            images = ModernImage.query.filter(
+                db.or_(
+                    ModernImage.filename.like(f'%{query}%'),
+                    ModernImage.original_filename.like(f'%{query}%'),
+                    ModernImage.location.like(f'%{query}%')
+                ),
+                ModernImage.status == ImageStatus.COMPLETED
+            ).limit(limit).all()
+
+            results = [{
+                'id': img.id,
+                'filename': img.filename,
+                'original_filename': img.original_filename,
+                'similarity_score': 1.0,
+                'created_at': img.created_at.isoformat() if img.created_at else None,
+                'file_size': img.file_size,
+                'width': img.width,
+                'height': img.height,
+                'location': img.location,
+                'extracted_text': img.extracted_text[:100] + '...' if img.extracted_text and len(img.extracted_text) > 100 else img.extracted_text,
+                'thumbnail_url': f'/api/v2/images/{img.id}/thumbnail',
+                'image_url': f'/api/v2/images/{img.id}/file'
+            } for img in images]
+
+        else:
+            return jsonify({
+                'error': 'InvalidSearchType',
+                'message': f'Invalid search type: {search_type}',
+                'valid_types': ['semantic', 'text', 'metadata']
+            }), 400
+
+        logger.info("Test search completed",
+                   query=query,
+                   search_type=search_type,
+                   results_count=len(results))
+
+        return jsonify({
+            'status': 'success',
+            'query': query,
+            'search_type': search_type,
+            'similarity_threshold': similarity_threshold,
+            'results_count': len(results),
+            'data': results,
+            'message': f'Found {len(results)} matching images',
+            'note': 'This is a public test endpoint. Use authenticated /search for production.'
+        }), 200
+
+    except Exception as e:
+        logger.error("Test search failed",
+                    query=data.get('query') if 'data' in locals() else None,
+                    error=str(e),
+                    error_type=type(e).__name__)
+
+        return jsonify({
+            'error': 'SearchFailed',
+            'message': str(e),
+            'type': type(e).__name__
+        }), 500
+
+
 @modern_images_bp.route('/<int:image_id>', methods=['GET'])
 @modern_images_bp.response(200, ImageResponseSchema)
 @require_auth

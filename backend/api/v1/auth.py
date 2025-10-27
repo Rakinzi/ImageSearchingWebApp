@@ -2,7 +2,8 @@ from flask import Blueprint, request, jsonify, current_app
 from flask_smorest import Blueprint as SmorestBlueprint
 from flask_jwt_extended import (
     create_access_token, create_refresh_token,
-    jwt_required, get_jwt_identity, get_jwt
+    jwt_required, get_jwt_identity, get_jwt,
+    set_access_cookies, set_refresh_cookies, unset_jwt_cookies
 )
 from marshmallow import Schema, fields, validate
 from datetime import datetime, timedelta
@@ -120,7 +121,7 @@ def register(json_data):
         refresh_token = create_refresh_token(identity=user.id)
         
         from utils.responses import create_response
-        return create_response(
+        response = create_response(
             data={
                 'access_token': access_token,
                 'refresh_token': refresh_token,
@@ -129,6 +130,9 @@ def register(json_data):
             message='Registration successful. Please check your email to verify your account.',
             status_code=201
         )
+        set_access_cookies(response, access_token)
+        set_refresh_cookies(response, refresh_token)
+        return response
     
     except Exception as e:
         db.session.rollback()
@@ -175,7 +179,7 @@ def login(json_data):
         refresh_token = create_refresh_token(identity=user.id)
         
         from utils.responses import create_response
-        return create_response(
+        response = create_response(
             data={
                 'access_token': access_token,
                 'refresh_token': refresh_token,
@@ -184,6 +188,9 @@ def login(json_data):
             message='Login successful',
             status_code=200
         )
+        set_access_cookies(response, access_token)
+        set_refresh_cookies(response, refresh_token)
+        return response
     
     except Exception as e:
         current_app.logger.error(f"Login error: {str(e)}")
@@ -206,8 +213,19 @@ def refresh():
             return jsonify({'error': 'User account is inactive'}), 403
 
         access_token = create_access_token(identity=user.id)
-        
-        return jsonify({'access_token': access_token}), 200
+        refresh_token = create_refresh_token(identity=user.id)
+
+        from utils.responses import create_response
+        response = create_response(
+            data={
+                'access_token': access_token,
+                'refresh_token': refresh_token
+            },
+            message='Token refreshed successfully'
+        )
+        set_access_cookies(response, access_token)
+        set_refresh_cookies(response, refresh_token)
+        return response
     
     except Exception as e:
         current_app.logger.error(f"Token refresh error: {str(e)}")
@@ -339,7 +357,13 @@ def logout(current_user):
             session_id=jti
         )
         
-        return jsonify({'message': 'Logged out successfully'}), 200
+        from utils.responses import create_response
+        response = create_response(
+            data=None,
+            message='Logged out successfully'
+        )
+        unset_jwt_cookies(response)
+        return response
     
     except Exception as e:
         current_app.logger.error(f"Logout error: {str(e)}")

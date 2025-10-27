@@ -26,6 +26,15 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(seconds=int(os.getenv('JWT_ACCESS_TOKEN_EXPIRES', 3600)))
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(seconds=int(os.getenv('JWT_REFRESH_TOKEN_EXPIRES', 2592000)))
     JWT_ALGORITHM = 'HS256'
+    JWT_TOKEN_LOCATION = ['headers', 'cookies']
+    JWT_COOKIE_SECURE = os.getenv('JWT_COOKIE_SECURE', 'False').lower() == 'true'
+    JWT_COOKIE_SAMESITE = os.getenv('JWT_COOKIE_SAMESITE', 'None')
+    JWT_COOKIE_CSRF_PROTECT = os.getenv('JWT_COOKIE_CSRF_PROTECT', 'False').lower() == 'true'
+    JWT_COOKIE_HTTPONLY = os.getenv('JWT_COOKIE_HTTPONLY', 'True').lower() == 'true'
+    JWT_COOKIE_DOMAIN = os.getenv('JWT_COOKIE_DOMAIN')
+    JWT_ACCESS_COOKIE_PATH = os.getenv('JWT_ACCESS_COOKIE_PATH', '/')
+    JWT_REFRESH_COOKIE_PATH = os.getenv('JWT_REFRESH_COOKIE_PATH', '/api/v1/auth/refresh')
+    JWT_SESSION_COOKIE = False
     
     MAIL_SERVER = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
     MAIL_PORT = int(os.getenv('MAIL_PORT', 587))
@@ -44,7 +53,10 @@ class Config:
     RATELIMIT_DEFAULT = os.getenv('RATE_LIMIT_DEFAULT', '1000 per hour')
     RATELIMIT_HEADERS_ENABLED = True
     
-    CORS_ORIGINS = ['*']  # Configure properly for production
+    CORS_ORIGINS = [
+        origin.strip() for origin in os.getenv('CORS_ORIGINS', 'http://localhost:5173').split(',')
+        if origin.strip()
+    ]
     
     VECTOR_DB_TYPE = os.getenv('VECTOR_DB_TYPE', 'chromadb')
     CHROMADB_PATH = os.getenv('CHROMADB_PATH', './chroma_db')

@@ -13,63 +13,44 @@ const API_CONFIG = {
 }
 
 // Create axios instance
-const api = axios.create(API_CONFIG)
+const api = axios.create({
+  ...API_CONFIG,
+  withCredentials: true
+})
 
-// Auth token management
-let authToken = null
+// Auth token management (using HttpOnly cookies)
 let isRefreshing = false
 let failedQueue = []
 
-const processQueue = (error, token = null) => {
+const processQueue = (error) => {
   failedQueue.forEach(prom => {
     if (error) {
       prom.reject(error)
     } else {
-      prom.resolve(token)
+      prom.resolve()
     }
   })
   failedQueue = []
 }
 
-// Set auth token
+// No longer needed - tokens are managed via HttpOnly cookies
 export const setAuthToken = (token) => {
-  authToken = token
+  // This function is kept for backward compatibility but does nothing
+  // Tokens are automatically sent via HttpOnly cookies
   if (token) {
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`
-    localStorage.setItem('authToken', token)
-    console.log('✅ Auth token set successfully')
+    console.log('✅ Auth token set via HttpOnly cookie')
   } else {
-    delete api.defaults.headers.common['Authorization']
-    localStorage.removeItem('authToken')
-    localStorage.removeItem('userData')
-    console.log('🔒 Auth token cleared')
+    console.log('🔒 Auth token cleared via HttpOnly cookie')
   }
 }
 
-// Initialize token from localStorage on app load
-const initializeAuth = () => {
-  const savedToken = localStorage.getItem('authToken')
-  if (savedToken) {
-    setAuthToken(savedToken)
-    console.log('🔑 Auth token loaded from localStorage')
-  }
-}
-
-// Call initialization
-initializeAuth()
-
-// Request interceptor - Add auth token to every request
+// Request interceptor - Cookies are sent automatically
 api.interceptors.request.use(
   (config) => {
-    // Ensure token is always attached if available
-    const token = localStorage.getItem('authToken')
-    if (token && !config.headers['Authorization']) {
-      config.headers['Authorization'] = `Bearer ${token}`
-    }
+    // Ensure credentials are included for cookie-based auth
+    config.withCredentials = true
 
-    console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`, {
-      hasAuth: !!config.headers['Authorization']
-    })
+    console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`)
 
     return config
   },
@@ -96,15 +77,28 @@ api.interceptors.response.use(
     })
 
     // Handle 401 Unauthorized
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401) {
+      const isRefreshRequest = originalRequest?.url?.includes('/api/v1/auth/refresh')
+
+      if (isRefreshRequest) {
+        isRefreshing = false
+        setAuthToken(null)
+        processQueue(error, null)
+        return Promise.reject(error)
+      }
+
+      if (originalRequest._retry) {
+        return Promise.reject(error)
+      }
+
       originalRequest._retry = true
 
       // Check if we're already refreshing
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
-        }).then(token => {
-          originalRequest.headers['Authorization'] = 'Bearer ' + token
+        }).then(() => {
+          // Cookie is automatically sent, just retry the request
           return api(originalRequest)
         }).catch(err => {
           return Promise.reject(err)
@@ -114,25 +108,19 @@ api.interceptors.response.use(
       isRefreshing = true
 
       try {
-        // Try to refresh the token
-        const refreshResponse = await api.post('/api/v1/auth/refresh')
-        const newToken = refreshResponse.data?.data?.access_token || refreshResponse.data?.access_token
+        // Try to refresh the token (cookie will be set automatically by backend)
+        await api.post('/api/v1/auth/refresh')
 
-        if (newToken) {
-          setAuthToken(newToken)
-          processQueue(null, newToken)
-          originalRequest.headers['Authorization'] = 'Bearer ' + newToken
-          return api(originalRequest)
-        } else {
-          throw new Error('No token received from refresh')
-        }
+        // Process queued requests
+        processQueue(null)
+
+        // Retry the original request (cookie is now refreshed)
+        return api(originalRequest)
       } catch (refreshError) {
         console.error('🔄 Token refresh failed:', refreshError)
-        processQueue(refreshError, null)
+        processQueue(refreshError)
 
-        // Clear auth and redirect to login
-        setAuthToken(null)
-
+        // Redirect to login if not already there
         if (window.location.pathname !== '/login' &&
             window.location.pathname !== '/register' &&
             window.location.pathname !== '/verify-email') {

@@ -264,7 +264,23 @@ export const useImagesStore = defineStore('images', {
     async loadStats() {
       try {
         const response = await apiService.images.getStats()
-        this.stats = response.data.data
+        const rawStats = response.data?.data || {}
+        const statusBreakdown = rawStats.status_breakdown || {}
+
+        this.stats = {
+          totalImages: rawStats.total_images ?? 0,
+          processing: (statusBreakdown.pending ?? statusBreakdown.processing) ?? 0,
+          pending: statusBreakdown.pending ?? 0,
+          completed: statusBreakdown.completed ?? 0,
+          failed: statusBreakdown.failed ?? 0,
+          withFaces: rawStats.images_with_faces ?? 0,
+          withLocation: rawStats.images_with_location ?? 0,
+          withText: rawStats.images_with_text ?? 0,
+          totalSize: rawStats.total_file_size_bytes ?? 0,
+          avgProcessingTime: rawStats.avg_processing_time_seconds ?? 0,
+          statusBreakdown,
+          raw: rawStats
+        }
 
         return this.stats
       } catch (error) {

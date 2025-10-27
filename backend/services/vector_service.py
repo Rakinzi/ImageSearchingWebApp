@@ -1,6 +1,6 @@
 import os
 import torch
-import clip
+import open_clip
 import numpy as np
 from PIL import Image
 from io import BytesIO
@@ -8,17 +8,22 @@ import chromadb
 from typing import List, Dict, Optional, Tuple, Any
 import logging
 from flask import current_app
+from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
 
 class VectorService:
-    CLIP_EMBEDDING_DIM = 512  # ViT-B/32 produces 512-dim embeddings
+    # OpenCLIP ViT-L/14 produces 768-dim embeddings (upgraded from 512-dim ViT-B/32)
+    CLIP_EMBEDDING_DIM = 768
+    MODEL_NAME = 'ViT-L-14'
+    MODEL_PRETRAINED = 'laion2b_s32b_b82k'  # LAION-2B trained weights
 
     def __init__(self):
         self.device = self._get_optimal_device()
         self.model = None
         self.preprocessor = None
-        self.chroma_client = None
+        self.tokenizer = None
+        self.chroma_client = None  # Keep for backward compatibility during migration
         self.image_collection = None
         self.face_collection = None
         self._initialized = False
@@ -43,13 +48,25 @@ class VectorService:
     
     def _initialize_clip_model(self):
         try:
-            logger.info("Initializing CLIP model...")
-            self.model, self.preprocessor = clip.load('ViT-B/32', device=self.device)
+            logger.info(f"Initializing OpenCLIP model: {self.MODEL_NAME} with {self.MODEL_PRETRAINED} weights...")
+
+            # Create model and transforms using OpenCLIP
+            self.model, _, self.preprocessor = open_clip.create_model_and_transforms(
+                self.MODEL_NAME,
+                pretrained=self.MODEL_PRETRAINED,
+                device=self.device
+            )
+
+            # Get tokenizer for text encoding
+            self.tokenizer = open_clip.get_tokenizer(self.MODEL_NAME)
+
+            # Set model to evaluation mode
             self.model.eval()
-            logger.info("CLIP model initialized successfully")
+
+            logger.info(f"✅ OpenCLIP model initialized successfully: {self.MODEL_NAME} ({self.CLIP_EMBEDDING_DIM}-dim embeddings)")
         except Exception as e:
-            logger.error(f"Failed to initialize CLIP model: {str(e)}")
-            raise Exception(f"CLIP model initialization failed: {str(e)}")
+            logger.error(f"Failed to initialize OpenCLIP model: {str(e)}")
+            raise Exception(f"OpenCLIP model initialization failed: {str(e)}")
     
     def _initialize_chroma_db(self):
         try:
@@ -74,13 +91,13 @@ class VectorService:
             raise Exception(f"ChromaDB initialization failed: {str(e)}")
     
     def generate_image_embedding(self, image_data: bytes) -> np.ndarray:
-        """Generate CLIP embedding for an image.
+        """Generate OpenCLIP embedding for an image.
 
         Args:
             image_data: Raw image bytes
 
         Returns:
-            numpy array of shape (512,) containing the embedding
+            numpy array of shape (768,) containing the embedding for ViT-L/14
 
         Raises:
             Exception: If embedding generation fails
@@ -109,24 +126,26 @@ class VectorService:
             raise Exception(f"Image embedding generation failed: {str(e)}")
     
     def generate_text_embedding(self, text: str) -> np.ndarray:
-        """Generate CLIP embedding for text.
+        """Generate OpenCLIP embedding for text.
 
         Args:
             text: Text query string
 
         Returns:
-            numpy array of shape (512,) containing the embedding
+            numpy array of shape (768,) containing the embedding for ViT-L/14
 
         Raises:
             Exception: If embedding generation fails
         """
         self._ensure_initialized()
         try:
-            text_input = clip.tokenize([text]).to(self.device)
+            # Tokenize text using OpenCLIP tokenizer
+            text_input = self.tokenizer([text]).to(self.device)
 
             with torch.no_grad():
+                # Encode text using OpenCLIP model
                 embedding = self.model.encode_text(text_input)
-                # Normalize the embedding
+                # Normalize the embedding (L2 normalization for cosine similarity)
                 embedding = embedding / embedding.norm(dim=-1, keepdim=True)
                 embedding = embedding.cpu().numpy().flatten()
 
@@ -448,7 +467,7 @@ class VectorService:
         try:
             model_status = self.model is not None
             chroma_status = self.chroma_client is not None
-            
+
             if chroma_status:
                 try:
                     image_count = self.image_collection.count()
@@ -460,7 +479,7 @@ class VectorService:
             else:
                 image_count = -1
                 face_count = -1
-            
+
             return {
                 'healthy': model_status and chroma_status,
                 'model_loaded': model_status,
@@ -475,3 +494,125 @@ class VectorService:
                 'healthy': False,
                 'error': str(e)
             }
+
+    # ==================== pgvector Methods (New) ====================
+
+    def store_embedding_to_db(self, image_id: int, embedding: np.ndarray) -> bool:
+        """
+        Store embedding directly to PostgreSQL using pgvector.
+
+        Args:
+            image_id: ModernImage ID (integer)
+            embedding: 768-dim numpy array
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            from models.modern_image import ModernImage
+            from extensions import db
+
+            image = ModernImage.query.get(image_id)
+            if not image:
+                logger.error(f"Image {image_id} not found")
+                return False
+
+            # Store embedding in pgvector column
+            image.embedding = embedding.tolist()
+            image.embedding_model = self.MODEL_NAME
+            image.embedding_version = 'v3'  # v3 = pgvector with ViT-L/14
+
+            db.session.commit()
+            logger.info(f"✅ Stored {self.CLIP_EMBEDDING_DIM}-dim embedding for image {image_id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to store embedding to DB: {str(e)}")
+            try:
+                from extensions import db
+                db.session.rollback()
+            except:
+                pass
+            return False
+
+    def search_images_pgvector(self,
+                               query_embedding: np.ndarray,
+                               user_id: Optional[int] = None,
+                               limit: int = 20,
+                               similarity_threshold: float = 0.7) -> List[Dict[str, Any]]:
+        """
+        Search images using pgvector similarity search.
+
+        Args:
+            query_embedding: 768-dim query vector
+            user_id: Optional user ID filter
+            limit: Maximum results
+            similarity_threshold: Minimum similarity (0-1)
+
+        Returns:
+            List of dicts with image info and similarity scores
+        """
+        try:
+            from models.modern_image import ModernImage
+
+            # Use the model's search_by_embedding method
+            results = ModernImage.search_by_embedding(
+                query_embedding=query_embedding.tolist(),
+                user_id=user_id,
+                limit=limit,
+                similarity_threshold=similarity_threshold
+            )
+
+            # Format results
+            formatted_results = []
+            for image, similarity in results:
+                formatted_results.append({
+                    'id': str(image.id),  # Convert to string for compatibility
+                    'similarity': float(similarity),
+                    'metadata': {
+                        'filename': image.filename,
+                        'user_id': image.user_id,
+                        'created_at': image.created_at.isoformat(),
+                        'location': image.location,
+                        'has_faces': image.has_faces
+                    }
+                })
+
+            logger.info(f"pgvector search returned {len(formatted_results)} results")
+            return formatted_results
+
+        except Exception as e:
+            logger.error(f"Failed to search images with pgvector: {str(e)}")
+            return []
+
+    def text_to_image_search_pgvector(self,
+                                     text_query: str,
+                                     user_id: Optional[int] = None,
+                                     limit: int = 20,
+                                     similarity_threshold: float = 0.7) -> List[Dict[str, Any]]:
+        """
+        Text-to-image search using pgvector (recommended method).
+
+        Args:
+            text_query: Text search query
+            user_id: Optional user ID filter
+            limit: Maximum results
+            similarity_threshold: Minimum similarity
+
+        Returns:
+            List of similar images with scores
+        """
+        try:
+            # Generate text embedding with ViT-L/14
+            text_embedding = self.generate_text_embedding(text_query)
+
+            # Search using pgvector
+            return self.search_images_pgvector(
+                text_embedding,
+                user_id=user_id,
+                limit=limit,
+                similarity_threshold=similarity_threshold
+            )
+        except Exception as e:
+            logger.error(f"Failed text-to-image search with pgvector: {str(e)}")
+            return []

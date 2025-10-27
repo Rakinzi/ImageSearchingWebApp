@@ -85,38 +85,23 @@
             </div>
           </div>
 
-          <!-- Embeddings Option -->
-          <div class="flex items-start space-x-3">
-            <Checkbox id="embeddings" v-model:checked="options.generateEmbeddings" class="mt-1" />
+          <!-- Embeddings (Always Enabled - System Core Feature) -->
+          <div class="flex items-start space-x-3 opacity-60">
+            <Checkbox id="embeddings" checked disabled class="mt-1" />
             <div class="flex-1">
-              <Label for="embeddings" class="font-medium cursor-pointer flex items-center gap-2">
+              <Label for="embeddings" class="font-medium flex items-center gap-2">
                 <Search class="h-4 w-4" />
                 Generate AI Embeddings
+                <Badge variant="outline" class="ml-2">Always On</Badge>
               </Label>
               <p class="text-xs text-muted-foreground mt-1">
-                Create AI-powered embeddings for semantic search and similarity matching
+                AI embeddings are always generated for semantic search and similarity matching
               </p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <!-- Feature Info Alerts -->
-      <Alert v-if="!options.extractText && !options.detectFaces && !options.generateEmbeddings" variant="default">
-        <AlertCircle class="h-4 w-4" />
-        <AlertTitle>All processing disabled</AlertTitle>
-        <AlertDescription>
-          Images will be uploaded but no AI processing will occur. You can reprocess images later.
-        </AlertDescription>
-      </Alert>
-
-      <Alert v-else-if="options.extractText || options.detectFaces || options.generateEmbeddings">
-        <Info class="h-4 w-4" />
-        <AlertTitle>Processing enabled</AlertTitle>
-        <AlertDescription>
-          Selected features will be applied in the background. You can view results once processing completes.
-        </AlertDescription>
-      </Alert>
     </div>
 
     <Separator />
@@ -200,15 +185,15 @@
 
 <script setup>
 import { ref, reactive, watch } from 'vue'
-import { Upload, FileImage, X, FileText, User, Search, AlertCircle, Info } from 'lucide-vue-next'
+import { Upload, FileImage, X, FileText, User, Search } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { toast } from 'vue-sonner'
 import { useImagesStore } from '../stores/imagesStore.js'
 
 const emit = defineEmits(['close', 'upload-complete'])
@@ -229,7 +214,7 @@ const tagsInput = ref('')
 const options = reactive({
   extractText: true,
   detectFaces: true,
-  generateEmbeddings: true
+  // generateEmbeddings is always true - removed from UI
 })
 
 // Metadata
@@ -256,7 +241,9 @@ const addFiles = (files) => {
   fileList.value.push(...newFiles)
   if (fileList.value.length > 10) {
     fileList.value = fileList.value.slice(0, 10)
-    alert('Maximum 10 files allowed')
+    toast.warning('Maximum 10 files allowed', {
+      description: 'Only the first 10 files will be uploaded'
+    })
   }
 }
 
@@ -279,7 +266,9 @@ const removeTag = (index) => {
 // Upload functionality
 const startUpload = async () => {
   if (fileList.value.length === 0) {
-    alert('Please select at least one image')
+    toast.error('No images selected', {
+      description: 'Please select at least one image to upload'
+    })
     return
   }
 
@@ -292,7 +281,7 @@ const startUpload = async () => {
     const uploadOptions = {
       extractText: options.extractText,
       detectFaces: options.detectFaces,
-      generateEmbeddings: options.generateEmbeddings,
+      generateEmbeddings: true, // Always generate embeddings - core system feature
       metadata: {
         tags: metadata.tags,
         description: metadata.description,
@@ -314,7 +303,9 @@ const startUpload = async () => {
       data: uploadedImages
     })
 
-    alert(`Successfully uploaded ${uploadedImages.length} images`)
+    toast.success('Upload successful!', {
+      description: `Successfully uploaded ${uploadedImages.length} ${uploadedImages.length === 1 ? 'image' : 'images'}. AI processing started in background.`
+    })
 
     // Reset form
     setTimeout(() => {
@@ -327,7 +318,9 @@ const startUpload = async () => {
     uploadStatus.value = 'Upload failed'
     uploadProgress.value = 0
 
-    alert(error.message || 'Failed to upload images')
+    toast.error('Upload failed', {
+      description: error.message || 'Failed to upload images. Please try again.'
+    })
   } finally {
     uploading.value = false
   }

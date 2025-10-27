@@ -10,8 +10,10 @@ from dataclasses import dataclass
 
 from sqlalchemy import Index, Text, event
 from sqlalchemy.dialects.mysql import JSON
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import validates
+from pgvector.sqlalchemy import Vector
 from extensions import db
 
 
@@ -78,8 +80,10 @@ class ModernImage(db.Model):
     image_metadata: Optional[Dict[str, Any]] = db.Column(JSON, nullable=True)
 
     # Vector database integration
-    vector_id: Optional[str] = db.Column(db.String(255), nullable=True, index=True)
-    embedding_version: str = db.Column(db.String(50), default='v2', nullable=False)
+    vector_id: Optional[str] = db.Column(db.String(255), nullable=True, index=True)  # Legacy ChromaDB ID
+    embedding: Optional[Any] = db.Column(Vector(768), nullable=True)  # pgvector embedding (ViT-L/14: 768-dim)
+    embedding_model: str = db.Column(db.String(100), default='ViT-L-14', nullable=False)
+    embedding_version: str = db.Column(db.String(50), default='v3', nullable=False)  # v3 = pgvector with ViT-L/14
 
     # Processing tracking
     processing_started_at: Optional[datetime] = db.Column(db.DateTime, nullable=True)
@@ -245,6 +249,51 @@ class ModernImage(db.Model):
         if user_id:
             query = query.filter_by(user_id=user_id)
         return query.all()
+
+    @classmethod
+    def search_by_embedding(cls, query_embedding: List[float],
+                          user_id: Optional[int] = None,
+                          limit: int = 20,
+                          similarity_threshold: float = 0.7) -> List[tuple['ModernImage', float]]:
+        """
+        Search images by vector similarity using pgvector.
+
+        Args:
+            query_embedding: Query vector (768-dim for ViT-L/14)
+            user_id: Optional user ID filter
+            limit: Maximum number of results
+            similarity_threshold: Minimum similarity score (0-1, higher = stricter)
+
+        Returns:
+            List of tuples (image, similarity_score) sorted by similarity
+        """
+        from sqlalchemy import func
+
+        # pgvector cosine distance: 0 = identical, 2 = opposite
+        # Convert to similarity: 1 - (distance / 2) => 1 = identical, 0 = opposite
+        distance = cls.embedding.cosine_distance(query_embedding)
+        similarity = (1 - (distance / 2)).label('similarity')
+
+        query = (db.session.query(cls, similarity)
+                .filter(cls.embedding.isnot(None))
+                .filter(cls.status == ImageStatus.COMPLETED))
+
+        if user_id:
+            query = query.filter_by(user_id=user_id)
+
+        # Filter by similarity threshold
+        # distance threshold = 2 * (1 - similarity_threshold)
+        distance_threshold = 2 * (1 - similarity_threshold)
+        query = query.filter(distance < distance_threshold)
+
+        # Order by similarity (descending) and limit
+        query = query.order_by(distance.asc()).limit(limit)
+
+        results = []
+        for image, sim in query.all():
+            results.append((image, float(sim)))
+
+        return results
 
     # Analytics and metrics
     def get_metrics(self) -> ImageMetrics:

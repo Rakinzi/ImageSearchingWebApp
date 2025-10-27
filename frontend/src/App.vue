@@ -1,5 +1,8 @@
 <template>
   <div class="min-h-screen bg-background">
+    <!-- Toast Notifications -->
+    <Toaster position="top-right" richColors />
+
     <!-- Auth Routes (Login/Register) -->
     <div v-if="isAuthRoute" class="min-h-screen">
       <router-view />
@@ -133,6 +136,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useAuthStore } from './stores/authStore'
 import UploadComponent from './components/UploadComponent.vue'
+import { Toaster } from '@/components/ui/sonner'
 
 // Stores and composables
 const authStore = useAuthStore()
@@ -197,7 +201,6 @@ const toggleTheme = () => {
   } else {
     document.documentElement.classList.remove('dark')
   }
-  localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
   console.log('Theme toggled:', isDark.value, 'HTML classes:', document.documentElement.className)
 }
 
@@ -211,9 +214,9 @@ const handleUploadComplete = (result) => {
   alert(`Successfully uploaded ${result.count} images`)
 }
 
-// Initialize theme from localStorage
-const savedTheme = localStorage.getItem('theme')
-if (savedTheme === 'dark') {
+// Initialize theme from prefers-color-scheme
+const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+if (prefersDark) {
   isDark.value = true
   document.documentElement.classList.add('dark')
 } else {

@@ -41,10 +41,12 @@ scikit-learn
 
 # AI/ML Specific packages
 git+https://github.com/openai/CLIP.git
+open-clip-torch  # OpenCLIP for better image embeddings (ViT-L/14)
 facenet-pytorch
 deepface
 chromadb
 sentence-transformers
+pgvector  # PostgreSQL vector extension for efficient similarity search
 
 # NLP
 spacy

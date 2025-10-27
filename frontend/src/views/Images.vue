@@ -1,6 +1,6 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
-import { Search, Grid3x3, Grid2x2, List, RefreshCcw, Upload, Download, Edit2, Info } from 'lucide-vue-next';
+import { ref, onMounted, computed, watch } from 'vue';
+import { Search, Grid3x3, Grid2x2, List, RefreshCcw, Upload, Download, Edit2, Info, X } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,11 +9,13 @@ import VueEasyLightbox from 'vue-easy-lightbox';
 import { useImagesStore } from '../stores/imagesStore';
 import { API_BASE_URL } from '../services/api';
 import { useRouter } from 'vue-router';
+import { useDebounceFn } from '@vueuse/core';
 
 const router = useRouter();
 const imagesStore = useImagesStore();
 
 const searchQuery = ref('');
+const searchType = ref('semantic'); // 'semantic', 'text', 'metadata'
 const loading = ref(false);
 const displayedImages = ref([]);
 const viewMode = ref('grid'); // 'grid', 'masonry', 'list'
@@ -48,18 +50,215 @@ const updateDisplayedImages = () => {
   }));
 };
 
+// Advanced natural language date parsing
+const parseNaturalLanguageDate = (query) => {
+  const months = ['january', 'february', 'march', 'april', 'may', 'june',
+                  'july', 'august', 'september', 'october', 'november', 'december'];
+
+  const currentYear = new Date().getFullYear();
+  const lowerQuery = query.toLowerCase().trim();
+
+  // Extract keywords and date info
+  let keywords = [];
+  let dateFilter = null;
+
+  // Pattern 1: "this year", "last year", "2024", "2023"
+  const thisYearMatch = lowerQuery.match(/this\s+year/);
+  const lastYearMatch = lowerQuery.match(/last\s+year/);
+  const specificYearMatch = lowerQuery.match(/\b(20\d{2})\b/);
+
+  if (thisYearMatch) {
+    dateFilter = { year: currentYear };
+    keywords = lowerQuery.replace(/this\s+year/g, '').trim().split(/\s+/).filter(k => k);
+  } else if (lastYearMatch) {
+    dateFilter = { year: currentYear - 1 };
+    keywords = lowerQuery.replace(/last\s+year/g, '').trim().split(/\s+/).filter(k => k);
+  } else if (specificYearMatch) {
+    const year = parseInt(specificYearMatch[1]);
+    dateFilter = { year };
+    keywords = lowerQuery.replace(/\b20\d{2}\b/g, '').trim().split(/\s+/).filter(k => k);
+  }
+
+  // Pattern 2: "this month", "last month"
+  const thisMonthMatch = lowerQuery.match(/this\s+month/);
+  const lastMonthMatch = lowerQuery.match(/last\s+month/);
+
+  if (thisMonthMatch) {
+    const now = new Date();
+    dateFilter = { year: now.getFullYear(), month: now.getMonth() + 1 };
+    keywords = lowerQuery.replace(/this\s+month/g, '').trim().split(/\s+/).filter(k => k);
+  } else if (lastMonthMatch) {
+    const lastMonth = new Date();
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    dateFilter = { year: lastMonth.getFullYear(), month: lastMonth.getMonth() + 1 };
+    keywords = lowerQuery.replace(/last\s+month/g, '').trim().split(/\s+/).filter(k => k);
+  }
+
+  // Pattern 3: "DD Month" or "Month DD" with optional year
+  const dayMonthPattern = /(\d{1,2})\s+(\w+)(?:\s+(\d{4}))?/;
+  const monthDayPattern = /(\w+)\s+(\d{1,2})(?:\s+(\d{4}))?/;
+
+  let dateMatch = lowerQuery.match(dayMonthPattern) || lowerQuery.match(monthDayPattern);
+
+  if (dateMatch && !dateFilter) {
+    const [fullMatch, first, second, year] = dateMatch;
+    let day, monthName;
+
+    if (isNaN(first)) {
+      monthName = first;
+      day = parseInt(second);
+    } else {
+      day = parseInt(first);
+      monthName = second;
+    }
+
+    const monthIndex = months.findIndex(m => m.startsWith(monthName.toLowerCase()));
+
+    if (monthIndex !== -1 && day >= 1 && day <= 31) {
+      dateFilter = {
+        day,
+        month: monthIndex + 1,
+        year: year ? parseInt(year) : null
+      };
+      keywords = lowerQuery.replace(fullMatch, '').trim().split(/\s+/).filter(k => k);
+    }
+  }
+
+  // Pattern 4: Month names with "this" or "last"
+  const monthWithModifier = lowerQuery.match(/(this|last)\s+(\w+)/);
+  if (monthWithModifier && !dateFilter) {
+    const [fullMatch, modifier, monthName] = monthWithModifier;
+    const monthIndex = months.findIndex(m => m.startsWith(monthName.toLowerCase()));
+
+    if (monthIndex !== -1) {
+      const now = new Date();
+      const targetMonth = monthIndex + 1;
+      let targetYear = now.getFullYear();
+
+      if (modifier === 'last') {
+        // If it's January and we say "last december", it means previous year
+        if (targetMonth > now.getMonth() + 1) {
+          targetYear--;
+        } else if (targetMonth === now.getMonth() + 1) {
+          targetYear--;
+        }
+      }
+
+      dateFilter = { month: targetMonth, year: targetYear };
+      keywords = lowerQuery.replace(fullMatch, '').trim().split(/\s+/).filter(k => k);
+    }
+  }
+
+  // Pattern 5: Special dates (christmas, halloween, new year, etc.)
+  const specialDates = {
+    'christmas': { day: 25, month: 12 },
+    'halloween': { day: 31, month: 10 },
+    'new year': { day: 1, month: 1 },
+    'valentine': { day: 14, month: 2 },
+    'easter': null, // Easter varies, skip for now
+    'thanksgiving': null // Thanksgiving varies, skip for now
+  };
+
+  for (const [holiday, date] of Object.entries(specialDates)) {
+    if (date && lowerQuery.includes(holiday)) {
+      // Extract year modifiers
+      const holidayYear = lowerQuery.match(/this\s+year/) ? currentYear :
+                         lowerQuery.match(/last\s+year/) ? currentYear - 1 :
+                         lowerQuery.match(/\b(20\d{2})\b/) ? parseInt(lowerQuery.match(/\b(20\d{2})\b/)[1]) :
+                         null;
+
+      dateFilter = {
+        day: date.day,
+        month: date.month,
+        year: holidayYear
+      };
+      keywords = [holiday];
+      break;
+    }
+  }
+
+  return {
+    keywords: keywords.length > 0 ? keywords.join(' ') : null,
+    dateFilter
+  };
+};
+
 const fetchImages = async (query) => {
   loading.value = true;
   try {
-    const results = await imagesStore.searchImages(query);
-    displayedImages.value = results.map(image => ({
-      id: image.id,
-      thumbnailUrl: `${API_BASE_URL}/api/v2/images/${image.id}/thumbnail`,
-      fullUrl: `${API_BASE_URL}/api/v2/images/${image.id}/file`,
-      filename: image.filename || 'Untitled',
-      created_at: image.created_at,
-      status: image.status
-    }));
+    // Parse natural language query
+    const { keywords, dateFilter } = parseNaturalLanguageDate(query);
+
+    console.log('Parsed query:', { keywords, dateFilter, originalQuery: query });
+
+    if (keywords || dateFilter) {
+      // Hybrid search: semantic + date filtering
+      let results = [];
+
+      if (keywords) {
+        // Perform search with keywords using selected search type
+        results = await imagesStore.searchImages(keywords, searchType.value, {
+          similarityThreshold: 0.3,
+          limit: 100 // Get more results for date filtering
+        });
+        console.log(`Search completed: ${results.length} results found for "${keywords}" (${searchType.value})`);
+      } else {
+        // No keywords, just date filter - get all images
+        await imagesStore.loadImages(1, true);
+        results = imagesStore.images;
+      }
+
+      // Apply date filter if specified
+      if (dateFilter) {
+        results = results.filter(image => {
+          if (!image.created_at) return false;
+          const date = new Date(image.created_at);
+
+          // Match year if specified
+          if (dateFilter.year && date.getFullYear() !== dateFilter.year) {
+            return false;
+          }
+
+          // Match month if specified
+          if (dateFilter.month && date.getMonth() + 1 !== dateFilter.month) {
+            return false;
+          }
+
+          // Match day if specified
+          if (dateFilter.day && date.getDate() !== dateFilter.day) {
+            return false;
+          }
+
+          return true;
+        });
+      }
+
+      displayedImages.value = results.map(image => ({
+        id: image.id,
+        thumbnailUrl: `${API_BASE_URL}/api/v2/images/${image.id}/thumbnail`,
+        fullUrl: `${API_BASE_URL}/api/v2/images/${image.id}/file`,
+        filename: image.filename || 'Untitled',
+        created_at: image.created_at,
+        status: image.status,
+        similarity: image.similarity_score
+      }));
+    } else {
+      // Fallback to regular search with selected type
+      const results = await imagesStore.searchImages(query, searchType.value, {
+        similarityThreshold: 0.3,
+        limit: 50
+      });
+      console.log(`Search completed: ${results.length} results found for "${query}" (${searchType.value})`);
+      displayedImages.value = results.map(image => ({
+        id: image.id,
+        thumbnailUrl: `${API_BASE_URL}/api/v2/images/${image.id}/thumbnail`,
+        fullUrl: `${API_BASE_URL}/api/v2/images/${image.id}/file`,
+        filename: image.filename || 'Untitled',
+        created_at: image.created_at,
+        status: image.status,
+        similarity: image.similarity_score
+      }));
+    }
   } catch (error) {
     console.error("Error searching images:", error);
     displayedImages.value = [];
@@ -68,12 +267,31 @@ const fetchImages = async (query) => {
   }
 };
 
+// Debounced search function
+const debouncedSearch = useDebounceFn(() => {
+  if (searchQuery.value.trim() !== '') {
+    fetchImages(searchQuery.value);
+  } else {
+    updateDisplayedImages();
+  }
+}, 500);
+
+// Watch for search query changes
+watch(searchQuery, () => {
+  debouncedSearch();
+});
+
 const handleSearch = () => {
   if (searchQuery.value.trim() !== '') {
     fetchImages(searchQuery.value);
   } else {
     updateDisplayedImages();
   }
+};
+
+const clearSearch = () => {
+  searchQuery.value = '';
+  updateDisplayedImages();
 };
 
 const handleKeyPress = (event) => {
@@ -177,13 +395,56 @@ const formatFileSize = (bytes) => {
         <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
         <Input
           v-model="searchQuery"
-          placeholder="Search your images..."
-          class="pl-10 h-11"
+          :placeholder="searchType === 'semantic'
+            ? 'Describe what you\'re looking for... (e.g., \'person in red shirt\', \'graduation this year\')'
+            : searchType === 'text'
+            ? 'Search text in images (OCR)...'
+            : 'Search metadata and filenames...'"
+          class="pl-10 pr-10 h-11"
           @keyup="handleKeyPress"
         />
+        <button
+          v-if="searchQuery"
+          @click="clearSearch"
+          class="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <X class="h-5 w-5" />
+        </button>
       </div>
 
-      <div class="flex gap-3">
+      <div class="flex gap-3 items-center">
+        <!-- Search Type Selector -->
+        <div class="flex rounded-md border bg-background">
+          <Button
+            :variant="searchType === 'semantic' ? 'default' : 'ghost'"
+            @click="searchType = 'semantic'"
+            size="sm"
+            class="rounded-r-none"
+            title="AI-powered descriptive search"
+          >
+            <Search class="h-4 w-4 mr-1" />
+            Semantic
+          </Button>
+          <Button
+            :variant="searchType === 'text' ? 'default' : 'ghost'"
+            @click="searchType = 'text'"
+            size="sm"
+            class="rounded-none border-x"
+            title="Search extracted text (OCR)"
+          >
+            Text
+          </Button>
+          <Button
+            :variant="searchType === 'metadata' ? 'default' : 'ghost'"
+            @click="searchType = 'metadata'"
+            size="sm"
+            class="rounded-l-none"
+            title="Search filenames and metadata"
+          >
+            Metadata
+          </Button>
+        </div>
+
         <Button
           @click="handleSearch"
           :disabled="!searchQuery.trim()"
@@ -276,6 +537,9 @@ const formatFileSize = (bytes) => {
           <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
             <div class="absolute bottom-0 left-0 right-0 p-4">
               <p class="text-white text-sm font-medium truncate">{{ image.filename }}</p>
+              <p v-if="image.similarity" class="text-white/80 text-xs mt-1">
+                Match: {{ Math.round(image.similarity * 100) }}%
+              </p>
             </div>
           </div>
         </div>
