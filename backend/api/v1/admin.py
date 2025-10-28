@@ -13,6 +13,8 @@ from middleware.auth import require_admin
 from middleware.audit_logger import AuditLogger
 from utils.validators import validate_pagination
 from utils.security import sanitize_input
+from utils.time_utils import now as harare_now
+from utils.helpers import format_file_size
 
 admin_bp = SmorestBlueprint('admin', __name__, description='Administrative operations')
 
@@ -139,7 +141,7 @@ def get_audit_summary(current_user):
         if hours > 8760:  # Max 1 year
             hours = 8760
         
-        cutoff = datetime.utcnow() - timedelta(hours=hours)
+        cutoff = harare_now() - timedelta(hours=hours)
         
         summary_data = db.session.query(
             AuditLog.event_category,
@@ -356,7 +358,7 @@ def update_user(json_data, user_id, current_user):
         if not changes:
             return jsonify({'message': 'No changes made'}), 200
         
-        user.updated_at = datetime.utcnow()
+        user.updated_at = harare_now()
         db.session.commit()
         
         AuditLogger.log_resource_access(
@@ -402,7 +404,7 @@ def get_system_stats(query_args, current_user):
         include_processing_stats = query_args.get('include_processing_stats', False)
         time_range_hours = query_args.get('time_range_hours', 24)
         
-        cutoff = datetime.utcnow() - timedelta(hours=time_range_hours)
+        cutoff = harare_now() - timedelta(hours=time_range_hours)
         
         total_users = User.query.count()
         active_users = User.query.filter_by(is_active=True).count()
@@ -536,7 +538,7 @@ def get_system_health(current_user):
         return jsonify({
             'overall_status': overall_health,
             'components': health_status,
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': harare_now().isoformat()
         }), 200
         
     except Exception as e:

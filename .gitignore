@@ -12,6 +12,9 @@ venv/
 venv/
 
 backend/static/
+# Ignore downloaded AI model assets
+backend/deepface_models/
+backend/model_cache/
 
 # Ignore node_modules
 frontend/node_modules/

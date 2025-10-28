@@ -1,7 +1,6 @@
 import os
 import sys
 from typing import Optional
-from datetime import datetime
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_migrate import Migrate
@@ -15,6 +14,7 @@ from middleware.auth import setup_jwt_handlers
 from middleware.audit_logger import setup_audit_logging
 from utils.security import setup_security_headers
 from utils.responses import ApiResponse, ErrorResponse
+from utils.time_utils import now as harare_now
 
 def create_app(config_name: str = 'default') -> Flask:
     app = Flask(__name__)
@@ -61,7 +61,7 @@ def create_app(config_name: str = 'default') -> Flask:
 
         health_status = {
             'status': 'healthy',
-            'timestamp': str(datetime.utcnow()),
+            'timestamp': harare_now().isoformat(),
             'version': '2.0.0',
             'components': {}
         }

@@ -8,6 +8,7 @@ from PIL.ExifTags import TAGS
 import exifread
 from geopy.geocoders import Nominatim
 import json
+from .time_utils import now as harare_now
 
 def generate_thumbnail(image_data, size=(128, 128), quality=85):
     try:
@@ -210,7 +211,7 @@ def optimize_image_for_processing(image_data, max_dimension=1024):
         return image_data
 
 def generate_unique_id(prefix=''):
-    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+    timestamp = harare_now().strftime('%Y%m%d%H%M%S')
     random_suffix = uuid.uuid4().hex[:8]
     return f"{prefix}{timestamp}_{random_suffix}"
 
@@ -347,5 +348,5 @@ def create_image_metadata(processed_data, user_id):
         'latitude': processed_data['latitude'],
         'longitude': processed_data['longitude'],
         'processing_status': 'pending',
-        'created_at': datetime.utcnow()
+        'created_at': harare_now()
     }

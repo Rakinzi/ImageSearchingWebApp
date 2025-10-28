@@ -64,7 +64,12 @@ COPY --chown=app:app . .
 RUN mkdir -p static/uploads/{images,thumbnails,faces} logs chroma_db && \
     chown -R app:app static logs chroma_db
 
-RUN python3.11 -m spacy download en_core_web_sm
+# Create model cache directories with proper permissions
+RUN mkdir -p /home/app/.cache /home/app/.deepface && \
+    chown -R app:app /home/app/.cache /home/app/.deepface
+
+# Optional: Download spacy model (comment out if internet is slow)
+# RUN python3.11 -m spacy download en_core_web_sm
 
 # Copy and set up entrypoint script  
 COPY entrypoint-simple.sh /entrypoint.sh

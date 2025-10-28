@@ -17,6 +17,7 @@ from middleware.auth import require_auth
 from middleware.audit_logger import AuditLogger
 from utils.validators import validate_email, validate_password, ValidationError
 from utils.security import sanitize_input
+from utils.time_utils import now as harare_now
 
 auth_bp = SmorestBlueprint('auth', __name__, description='Authentication operations')
 email_service = EmailService()
@@ -88,7 +89,7 @@ def register(json_data):
             return jsonify({'error': 'Email already registered'}), 409
         
         verification_token = secrets.token_urlsafe(32)
-        token_expires = datetime.utcnow() + timedelta(hours=24)
+        token_expires = harare_now() + timedelta(hours=24)
         
         user = User(
             email=email,
@@ -240,7 +241,7 @@ def verify_email(token):
         if not user:
             return jsonify({'error': 'Invalid verification token'}), 400
         
-        if user.verification_token_expires_at < datetime.utcnow():
+        if user.verification_token_expires_at < harare_now():
             return jsonify({'error': 'Verification token has expired'}), 400
         
         user.is_verified = True
@@ -274,7 +275,7 @@ def forgot_password(json_data):
         if user:
             reset_token = secrets.token_urlsafe(32)
             user.reset_password_token = reset_token
-            user.reset_token_expires_at = datetime.utcnow() + timedelta(hours=1)
+            user.reset_token_expires_at = harare_now() + timedelta(hours=1)
             
             db.session.commit()
             
@@ -312,7 +313,7 @@ def reset_password(json_data, token):
         if not user:
             return jsonify({'error': 'Invalid reset token'}), 400
         
-        if user.reset_token_expires_at < datetime.utcnow():
+        if user.reset_token_expires_at < harare_now():
             return jsonify({'error': 'Reset token has expired'}), 400
         
         user.set_password(new_password)
@@ -387,7 +388,7 @@ def resend_verification(json_data):
         
         verification_token = secrets.token_urlsafe(32)
         user.verification_token = verification_token
-        user.verification_token_expires_at = datetime.utcnow() + timedelta(hours=24)
+        user.verification_token_expires_at = harare_now() + timedelta(hours=24)
         
         db.session.commit()
         

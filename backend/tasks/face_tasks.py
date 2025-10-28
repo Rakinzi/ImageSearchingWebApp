@@ -10,6 +10,7 @@ from models.user import User
 from services.face_service import FaceService
 from services.email_service import EmailService
 from middleware.audit_logger import AuditLogger
+from utils.time_utils import now as harare_now
 import os
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,7 @@ def process_faces_async(self, image_ids: List[int]):
             'total_faces_processed': 0,
             'total_faces_failed': 0,
             'image_results': [],
-            'start_time': datetime.utcnow().isoformat()
+            'start_time': harare_now().isoformat()
         }
         
         for image_id in image_ids:
@@ -100,7 +101,7 @@ def process_faces_async(self, image_ids: List[int]):
                     'error': str(image_error)
                 })
         
-        results['end_time'] = datetime.utcnow().isoformat()
+        results['end_time'] = harare_now().isoformat()
         
         logger.info(f"Face processing completed: {results['processed_images']} images processed, "
                    f"{results['total_faces_detected']} faces detected, "
@@ -306,7 +307,7 @@ def cleanup_failed_face_processing():
     try:
         logger.info("Starting cleanup of failed face processing")
         
-        cutoff_time = datetime.utcnow() - timedelta(hours=24)
+        cutoff_time = harare_now() - timedelta(hours=24)
         
         stuck_faces = Face.query.filter(
             Face.status == 'pending',
@@ -355,7 +356,7 @@ def generate_face_processing_report(user_id: int):
         report_data = {
             'user_name': user.name,
             'user_email': user.email,
-            'report_date': datetime.utcnow().isoformat(),
+            'report_date': harare_now().isoformat(),
             'face_statistics': stats,
             'face_clusters': clusters[:10],  # Top 10 clusters
             'recommendations': []

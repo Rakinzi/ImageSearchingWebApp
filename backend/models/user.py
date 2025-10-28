@@ -1,7 +1,7 @@
-from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import Index
 from extensions import db
+from utils.time_utils import now as harare_now
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -16,17 +16,17 @@ class User(db.Model):
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
     
     verification_token = db.Column(db.String(100), nullable=True)
-    verification_token_expires_at = db.Column(db.DateTime, nullable=True)
+    verification_token_expires_at = db.Column(db.DateTime(timezone=True), nullable=True)
     
     reset_password_token = db.Column(db.String(100), nullable=True)
-    reset_token_expires_at = db.Column(db.DateTime, nullable=True)
+    reset_token_expires_at = db.Column(db.DateTime(timezone=True), nullable=True)
     
-    last_login_at = db.Column(db.DateTime, nullable=True)
+    last_login_at = db.Column(db.DateTime(timezone=True), nullable=True)
     last_login_ip = db.Column(db.String(45), nullable=True)
     login_count = db.Column(db.Integer, default=0, nullable=False)
     
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=harare_now, nullable=False)
+    updated_at = db.Column(db.DateTime(timezone=True), default=harare_now, onupdate=harare_now, nullable=False)
     
     images = db.relationship('Image', backref='user', lazy=True, cascade='all, delete-orphan')
     audit_logs = db.relationship('AuditLog', backref='user', lazy=True)
@@ -45,7 +45,7 @@ class User(db.Model):
         return check_password_hash(self.password_hash, password)
     
     def update_login_info(self, ip_address=None):
-        self.last_login_at = datetime.utcnow()
+        self.last_login_at = harare_now()
         self.last_login_ip = ip_address
         self.login_count += 1
         db.session.commit()

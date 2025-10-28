@@ -1,10 +1,11 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue';
-import { Search, Grid3x3, Grid2x2, List, RefreshCcw, Upload, Download, Edit2, Info, X } from 'lucide-vue-next';
+import { Search, Grid3x3, Grid2x2, List, RefreshCcw, Upload, Download, Edit2, Info, X, Trash2 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import VueEasyLightbox from 'vue-easy-lightbox';
 import { useImagesStore } from '../stores/imagesStore';
 import { API_BASE_URL } from '../services/api';
@@ -22,6 +23,9 @@ const viewMode = ref('grid'); // 'grid', 'masonry', 'list'
 const visibleRef = ref(false);
 const indexRef = ref(0);
 const imagesRef = computed(() => displayedImages.value.map(img => img.fullUrl));
+const deleteDialogOpen = ref(false);
+const imageToDelete = ref(null);
+const deleting = ref(false);
 
 onMounted(async () => {
   await loadImages();
@@ -48,6 +52,11 @@ const updateDisplayedImages = () => {
     created_at: image.created_at,
     status: image.status
   }));
+  console.log('📋 Displayed images updated:', {
+    count: displayedImages.value.length,
+    apiBaseUrl: API_BASE_URL,
+    firstImage: displayedImages.value[0]
+  });
 };
 
 // Advanced natural language date parsing
@@ -318,8 +327,15 @@ const imageHeight = computed(() => {
 });
 
 const openLightbox = (index) => {
+  console.log('🖼️ Opening lightbox:', { index, totalImages: displayedImages.value.length });
+  console.log('📸 Image data:', displayedImages.value[index]);
+  console.log('🔗 Image URLs:', {
+    thumbnail: displayedImages.value[index]?.thumbnailUrl,
+    full: displayedImages.value[index]?.fullUrl
+  });
   indexRef.value = index;
   visibleRef.value = true;
+  console.log('✅ Lightbox state updated:', { indexRef: indexRef.value, visibleRef: visibleRef.value });
 };
 
 const viewImageDetail = (imageId) => {
@@ -366,6 +382,50 @@ const formatFileSize = (bytes) => {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
+
+const openDeleteDialog = () => {
+  const currentImage = displayedImages.value[indexRef.value];
+  if (currentImage) {
+    imageToDelete.value = currentImage;
+    deleteDialogOpen.value = true;
+  }
+};
+
+const confirmDelete = async () => {
+  if (!imageToDelete.value) return;
+
+  deleting.value = true;
+  try {
+    await imagesStore.deleteImage(imageToDelete.value.id);
+
+    // Remove from displayed images
+    displayedImages.value = displayedImages.value.filter(img => img.id !== imageToDelete.value.id);
+
+    // Close lightbox if this was the last image
+    if (displayedImages.value.length === 0) {
+      visibleRef.value = false;
+    } else {
+      // Adjust index if needed
+      if (indexRef.value >= displayedImages.value.length) {
+        indexRef.value = displayedImages.value.length - 1;
+      }
+    }
+
+    // Close dialog
+    deleteDialogOpen.value = false;
+    imageToDelete.value = null;
+  } catch (error) {
+    console.error('Failed to delete image:', error);
+    alert('Failed to delete image. Please try again.');
+  } finally {
+    deleting.value = false;
+  }
+};
+
+const cancelDelete = () => {
+  deleteDialogOpen.value = false;
+  imageToDelete.value = null;
 };
 </script>
 
@@ -534,13 +594,26 @@ const formatFileSize = (bytes) => {
             class="w-full object-cover"
             loading="lazy"
           />
-          <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-            <div class="absolute bottom-0 left-0 right-0 p-4">
+          <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            <button
+              @click.stop="imageToDelete = image; deleteDialogOpen = true"
+              class="absolute top-2 right-2 p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors z-10 pointer-events-auto"
+              title="Delete Image"
+            >
+              <Trash2 class="h-4 w-4" />
+            </button>
+            <div class="absolute bottom-0 left-0 right-0 p-4 pointer-events-none">
               <p class="text-white text-sm font-medium truncate">{{ image.filename }}</p>
               <p v-if="image.similarity" class="text-white/80 text-xs mt-1">
                 Match: {{ Math.round(image.similarity * 100) }}%
               </p>
             </div>
+          </div>
+          <!-- Status Badge -->
+          <div class="absolute top-2 left-2 pointer-events-none">
+            <Badge :variant="image.status === 'completed' ? 'default' : 'secondary'">
+              {{ image.status === 'processing' ? 'Processing' : image.status }}
+            </Badge>
           </div>
         </div>
       </template>
@@ -550,18 +623,18 @@ const formatFileSize = (bytes) => {
         <Card
           v-for="(image, index) in displayedImages"
           :key="image.id"
-          class="transition-all hover:translate-x-2 hover:shadow-md cursor-pointer"
-          @click="openLightbox(index)"
+          class="transition-all hover:translate-x-2 hover:shadow-md"
         >
           <CardContent class="p-4">
             <div class="flex gap-5 items-center">
               <img
                 :src="image.thumbnailUrl"
                 :alt="image.filename"
-                class="w-28 h-28 rounded-lg object-cover flex-shrink-0"
+                class="w-28 h-28 rounded-lg object-cover flex-shrink-0 cursor-pointer"
                 loading="lazy"
+                @click="openLightbox(index)"
               />
-              <div class="flex-1 flex flex-col">
+              <div class="flex-1 flex flex-col cursor-pointer" @click="openLightbox(index)">
                 <p class="font-semibold text-base">{{ image.filename }}</p>
                 <p class="text-muted-foreground text-sm mt-2">
                   Uploaded: {{ new Date(image.created_at).toLocaleDateString() }}
@@ -572,6 +645,15 @@ const formatFileSize = (bytes) => {
                   </Badge>
                 </div>
               </div>
+              <Button
+                @click.stop="imageToDelete = image; deleteDialogOpen = true"
+                variant="destructive"
+                size="sm"
+                class="flex-shrink-0"
+                title="Delete Image"
+              >
+                <Trash2 class="h-4 w-4" />
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -591,7 +673,7 @@ const formatFileSize = (bytes) => {
     >
       <template v-slot:toolbar="{ toolbarMethods }">
         <div class="flex gap-2 flex-wrap justify-center">
-          <!-- Download, Edit & Info -->
+          <!-- Download, Edit, Info & Delete -->
           <button
             @click="downloadImage"
             class="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
@@ -615,6 +697,14 @@ const formatFileSize = (bytes) => {
           >
             <Info class="h-4 w-4" />
             <span class="text-sm">Info</span>
+          </button>
+          <button
+            @click="openDeleteDialog"
+            class="flex items-center gap-2 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            title="Delete Image"
+          >
+            <Trash2 class="h-4 w-4" />
+            <span class="text-sm">Delete</span>
           </button>
 
           <!-- Zoom Controls -->
@@ -651,5 +741,35 @@ const formatFileSize = (bytes) => {
         </div>
       </template>
     </VueEasyLightbox>
+
+    <!-- Delete Confirmation Dialog -->
+    <Dialog v-model:open="deleteDialogOpen">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete Image?</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete "{{ imageToDelete?.filename }}"? This action cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            @click="cancelDelete"
+            variant="outline"
+            :disabled="deleting"
+          >
+            Cancel
+          </Button>
+          <Button
+            @click="confirmDelete"
+            variant="destructive"
+            :disabled="deleting"
+          >
+            <Trash2 v-if="!deleting" class="mr-2 h-4 w-4" />
+            <span v-if="deleting">Deleting...</span>
+            <span v-else>Delete</span>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>

@@ -1,11 +1,11 @@
 import os
 import json
 import logging
-from datetime import datetime
 from flask import request, g
 from flask_jwt_extended import get_jwt_identity
 from models.audit_log import AuditLog
 from extensions import db
+from utils.time_utils import now as harare_now
 
 def setup_audit_logging(app):
     os.makedirs('logs', exist_ok=True)
@@ -24,7 +24,7 @@ def setup_audit_logging(app):
     
     @app.before_request
     def before_request():
-        g.start_time = datetime.utcnow()
+        g.start_time = harare_now()
         g.user_id = None
         
         try:
@@ -49,7 +49,7 @@ def setup_audit_logging(app):
             if not any(request.path.startswith(path) for path in excluded_paths):
                 duration = None
                 if hasattr(g, 'start_time'):
-                    duration = (datetime.utcnow() - g.start_time).total_seconds()
+                    duration = (harare_now() - g.start_time).total_seconds()
                 
                 audit_logger.info(
                     f"RESPONSE - Status: {response.status_code}, "

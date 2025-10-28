@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import logging
+from collections import OrderedDict
 from typing import List, Dict, Optional, Any, Tuple, Union
 from datetime import datetime
 from pathlib import Path
@@ -14,6 +15,7 @@ from werkzeug.datastructures import FileStorage
 import structlog
 
 from models.modern_image import ModernImage, ImageStatus
+from models.face import Face
 from services.vector_service import VectorService
 from utils.helpers import (
     validate_and_process_image,
@@ -135,6 +137,22 @@ class ModernImageService:
             db.session.add(image)
             db.session.commit()
 
+            # Generate thumbnail immediately so users can see it right away
+            # This happens synchronously before queuing async processing
+            try:
+                thumbnail_path = self._generate_thumbnail(image, file_path)
+                if thumbnail_path:
+                    image.thumbnail_path = str(thumbnail_path.relative_to(self.upload_base_path))
+                    db.session.commit()
+                    logger.info("Thumbnail generated immediately after upload",
+                               image_id=image.id,
+                               thumbnail_path=image.thumbnail_path)
+            except Exception as thumb_error:
+                logger.warning("Failed to generate thumbnail immediately",
+                              image_id=image.id,
+                              error=str(thumb_error))
+                # Don't fail the upload if thumbnail generation fails
+
             logger.info("Image record created successfully",
                        user_id=user_id,
                        image_id=image.id,
@@ -176,16 +194,28 @@ class ModernImageService:
             List of tuples containing (image, similarity_score)
         """
         try:
+            person_results: List[Tuple[ModernImage, float]] = []
+            base_results: List[Tuple[ModernImage, float]] = []
+            if query and query.strip():
+                person_results = self._person_name_search(query, user_id, limit)
+
             if search_type == 'semantic':
-                return self._semantic_search(query, user_id, limit, similarity_threshold)
+                base_results = self._semantic_search(query, user_id, limit, similarity_threshold)
             elif search_type == 'text':
-                return self._text_search(query, user_id, limit)
+                base_results = self._text_search(query, user_id, limit)
             elif search_type == 'metadata':
-                return self._metadata_search(query, user_id, limit, filters)
+                base_results = self._metadata_search(query, user_id, limit, filters)
             elif search_type == 'hybrid':
-                return self._hybrid_search(query, user_id, limit, similarity_threshold, filters)
+                base_results = self._hybrid_search(query, user_id, limit, similarity_threshold, filters)
+            elif search_type == 'person':
+                return person_results[:limit]
             else:
                 raise ValueError(f"Unsupported search type: {search_type}")
+
+            if person_results:
+                return self._merge_results(person_results, base_results, limit)
+
+            return base_results
 
         except Exception as e:
             logger.error("Image search failed",
@@ -208,7 +238,7 @@ class ModernImageService:
         try:
             # Delete from vector database
             if image.vector_id:
-                self.vector_service.delete_vector(image.vector_id)
+                self.vector_service.remove_image_vector(image.vector_id)
 
             # Delete physical files
             self._delete_image_files(image)
@@ -377,31 +407,34 @@ class ModernImageService:
         limit: int,
         similarity_threshold: float
     ) -> List[Tuple[ModernImage, float]]:
-        """Perform semantic search using vector embeddings."""
+        """Perform semantic search using pgvector embeddings."""
         try:
-            # Get query embedding
-            query_embedding = self.vector_service.get_text_embedding(query)
+            # Generate text embedding for the search query
+            query_embedding = self.vector_service.generate_text_embedding(query)
 
-            # Search similar vectors
-            similar_vectors = self.vector_service.search_similar(
-                query_embedding,
+            # Search using pgvector (not ChromaDB)
+            results = self.vector_service.text_to_image_search_pgvector(
+                text_query=query,
+                user_id=user_id,
                 limit=limit,
-                threshold=similarity_threshold
+                similarity_threshold=similarity_threshold
             )
 
-            # Get corresponding images
-            results = []
-            for vector_id, similarity in similar_vectors:
-                image = ModernImage.query.filter_by(
-                    vector_id=vector_id,
-                    user_id=user_id,
-                    status=ImageStatus.COMPLETED
-                ).first()
+            # Convert results to (image, score) tuples
+            image_results = []
+            for result in results:
+                image_id = int(result['id'])
+                similarity = result['similarity']
 
-                if image:
-                    results.append((image, similarity))
+                image = ModernImage.query.get(image_id)
+                if image and image.user_id == user_id:
+                    image_results.append((image, similarity))
 
-            return results
+            logger.info("Semantic search completed",
+                       query=query,
+                       results_count=len(image_results))
+
+            return image_results
 
         except Exception as e:
             logger.error("Semantic search failed",
@@ -420,6 +453,41 @@ class ModernImageService:
 
         # Return with placeholder similarity scores
         return [(image, 1.0) for image in images]
+
+    def _person_name_search(
+        self,
+        query: str,
+        user_id: int,
+        limit: int
+    ) -> List[Tuple[ModernImage, float]]:
+        """
+        Search images by manually assigned face labels (person names).
+        Returns images that contain faces matching all query terms.
+        """
+        try:
+            search_terms = [term.strip() for term in query.split() if term.strip()]
+            if not search_terms:
+                return []
+
+            images_query = ModernImage.query.filter(
+                ModernImage.user_id == user_id,
+                ModernImage.status == ImageStatus.COMPLETED
+            )
+
+            for term in search_terms:
+                images_query = images_query.filter(
+                    ModernImage.faces.any(Face.person_name.ilike(f'%{term}%'))
+                )
+
+            images = images_query.order_by(ModernImage.created_at.desc()).limit(limit).all()
+            return [(image, 1.0) for image in images]
+
+        except Exception as e:
+            logger.warning("Person name search failed",
+                           query=query,
+                           user_id=user_id,
+                           error=str(e))
+            return []
 
     def _metadata_search(
         self,
@@ -467,6 +535,28 @@ class ModernImageService:
         # Sort by score and return top results
         sorted_results = sorted(all_results.values(), key=lambda x: x[1], reverse=True)
         return sorted_results[:limit]
+
+    def _merge_results(
+        self,
+        primary: List[Tuple[ModernImage, float]],
+        secondary: List[Tuple[ModernImage, float]],
+        limit: int
+    ) -> List[Tuple[ModernImage, float]]:
+        """Merge two result lists, preserving order and highest score per image."""
+        combined: "OrderedDict[int, Tuple[ModernImage, float]]" = OrderedDict()
+
+        for image, score in primary:
+            combined[image.id] = (image, score)
+
+        for image, score in secondary:
+            existing = combined.get(image.id)
+            if existing:
+                if score > existing[1]:
+                    combined[image.id] = (image, score)
+            else:
+                combined[image.id] = (image, score)
+
+        return list(combined.values())[:limit]
 
     def _generate_thumbnail(self, image: ModernImage, file_path: Path) -> Optional[Path]:
         """Generate thumbnail for image with fixed dimensions (center crop)."""
@@ -531,33 +621,98 @@ class ModernImageService:
             return None
 
     def _detect_and_store_faces(self, image: ModernImage, file_path: Path) -> None:
-        """Detect faces and store face data."""
+        """Detect faces and store face data directly for modern images."""
         try:
-            from services.face_service import FaceService
-            from models.image import Image
+            import cv2
+            import numpy as np
+            from models.face import Face
+            from utils.security import generate_secure_filename
 
-            # Face service currently works with Image table (v1)
-            # We need to check if there's a corresponding legacy image or process as modern
-            legacy_image = Image.query.filter_by(
-                user_id=image.user_id,
-                checksum=image.checksum
-            ).first()
+            # Use DeepFace for face detection
+            from deepface import DeepFace
 
-            if legacy_image:
-                # Use legacy image for face detection
-                face_service = FaceService()
-                face_results = face_service.process_image_faces(legacy_image.id)
-                logger.info("Face detection completed for modern image via legacy",
+            # Detect faces in the image
+            try:
+                detections = DeepFace.extract_faces(
+                    img_path=str(file_path),
+                    detector_backend='opencv',
+                    enforce_detection=False,
+                    align=True
+                )
+            except Exception as detection_error:
+                logger.warning("Face detection failed",
+                              image_id=image.id,
+                              error=str(detection_error))
+                return
+
+            if not detections:
+                logger.info("No faces detected in image", image_id=image.id)
+                return
+
+            user_paths = self._create_user_directories(image.user_id)
+            faces_saved = 0
+
+            for idx, detection in enumerate(detections):
+                try:
+                    confidence = detection.get('confidence', 0.0)
+
+                    # Skip low confidence detections
+                    if confidence < 0.5:
+                        continue
+
+                    facial_area = detection.get('facial_area', {})
+                    face_img = detection.get('face')
+
+                    if face_img is None or not facial_area:
+                        continue
+
+                    # Generate unique face ID and filename
+                    face_id = f"face_{image.id}_{idx}_{generate_secure_filename('face.jpg')[:16]}"
+                    face_filename = f"{face_id}.jpg"
+                    face_path = user_paths['faces'] / face_filename
+
+                    # Convert face image to uint8 if needed
+                    if face_img.dtype != np.uint8:
+                        face_img = (face_img * 255).astype(np.uint8)
+
+                    # Save face crop
+                    cv2.imwrite(str(face_path), cv2.cvtColor(face_img, cv2.COLOR_RGB2BGR))
+
+                    # Calculate file checksum
+                    with open(face_path, 'rb') as f:
+                        from utils.security import calculate_file_hash
+                        face_checksum = calculate_file_hash(f.read())
+
+                    # Create Face record with modern_image_id
+                    face = Face(
+                        face_id=face_id,
+                        file_path=str(face_path.relative_to(self.upload_base_path)),
+                        checksum=face_checksum,
+                        bounding_box=facial_area,
+                        confidence_score=float(confidence),
+                        status='processed',
+                        image_id=None,  # Null for modern images (use modern_image_id instead)
+                        modern_image_id=image.id  # Link to ModernImage
+                    )
+
+                    db.session.add(face)
+                    faces_saved += 1
+
+                except Exception as face_error:
+                    logger.warning("Failed to save face",
+                                  image_id=image.id,
+                                  face_idx=idx,
+                                  error=str(face_error))
+                    continue
+
+            if faces_saved > 0:
+                db.session.commit()
+                logger.info("Face detection completed for modern image",
                            image_id=image.id,
-                           legacy_id=legacy_image.id,
-                           faces_detected=face_results.get('faces_detected', 0),
-                           faces_processed=face_results.get('faces_processed', 0))
+                           faces_detected=len(detections),
+                           faces_saved=faces_saved)
             else:
-                # For pure modern images, face detection will be skipped
-                # until Face model supports modern_image_id directly
-                logger.info("Skipping face detection for pure modern image",
-                           image_id=image.id,
-                           reason="No legacy image mapping")
+                logger.info("No valid faces saved for image", image_id=image.id)
 
         except Exception as e:
             logger.warning("Failed to detect faces",
@@ -565,34 +720,36 @@ class ModernImageService:
                           error=str(e))
 
     def _generate_embeddings(self, image: ModernImage, file_path: Path) -> Optional[str]:
-        """Generate vector embeddings for image."""
+        """Generate vector embeddings for image using pgvector (NOT ChromaDB)."""
         try:
             # Read image file as bytes
             with open(file_path, 'rb') as f:
                 image_data = f.read()
 
-            # Generate image embedding
+            # Generate image embedding using CLIP ViT-L/14 (768 dimensions)
             embedding = self.vector_service.generate_image_embedding(image_data)
 
-            # Store in vector database using image ID as the vector ID
-            vector_id = str(image.id)
-            success = self.vector_service.store_image_vector(
-                image_id=vector_id,
-                embedding=embedding,
-                metadata={
-                    'image_id': image.id,
-                    'user_id': image.user_id,
-                    'filename': image.filename,
-                    'created_at': image.created_at.isoformat()
-                }
+            # Store in PostgreSQL using pgvector extension (modern v2 API)
+            # This stores the 768-dim embedding directly in the modern_images table
+            success = self.vector_service.store_embedding_to_db(
+                image_id=image.id,  # Integer ID
+                embedding=embedding
             )
 
-            return vector_id if success else None
+            if success:
+                logger.info("Embedding stored to pgvector",
+                           image_id=image.id,
+                           embedding_dim=len(embedding))
+                return str(image.id)
+            else:
+                logger.error("Failed to store embedding to pgvector",
+                            image_id=image.id)
+                return None
 
         except Exception as e:
-            logger.warning("Failed to generate embeddings",
-                          image_id=image.id,
-                          error=str(e))
+            logger.error("Failed to generate embeddings",
+                        image_id=image.id,
+                        error=str(e))
             return None
 
     def _delete_image_files(self, image: ModernImage) -> None:

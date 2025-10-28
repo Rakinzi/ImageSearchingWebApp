@@ -1,8 +1,8 @@
-from datetime import datetime
 from sqlalchemy import Index, Text
 from sqlalchemy.dialects.mysql import JSON
 from extensions import db
 from datetime import timedelta
+from utils.time_utils import now as harare_now
 
 class AuditLog(db.Model):
     __tablename__ = 'audit_logs'
@@ -38,7 +38,7 @@ class AuditLog(db.Model):
     risk_level = db.Column(db.Enum('low', 'medium', 'high', 'critical', name='risk_level'), 
                           default='low', nullable=False, index=True)
     
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    timestamp = db.Column(db.DateTime(timezone=True), default=harare_now, nullable=False, index=True)
     
     __table_args__ = (
         Index('ix_audit_logs_user_timestamp', 'user_id', 'timestamp'),
@@ -140,7 +140,7 @@ class AuditLog(db.Model):
     @classmethod
     def get_security_summary(cls, hours=24):
         from sqlalchemy import func
-        cutoff = datetime.utcnow() - timedelta(hours=hours)
+        cutoff = harare_now() - timedelta(hours=hours)
         
         return db.session.query(
             cls.event_category,
@@ -155,8 +155,7 @@ class AuditLog(db.Model):
     
     @classmethod
     def get_failed_logins(cls, hours=24, limit=100):
-        from datetime import timedelta
-        cutoff = datetime.utcnow() - timedelta(hours=hours)
+        cutoff = harare_now() - timedelta(hours=hours)
         
         return cls.query.filter(
             cls.event_category == 'authentication',

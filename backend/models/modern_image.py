@@ -15,6 +15,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import validates
 from pgvector.sqlalchemy import Vector
 from extensions import db
+from utils.time_utils import now as harare_now
 
 
 class ImageStatus(enum.Enum):
@@ -72,7 +73,7 @@ class ModernImage(db.Model):
 
     # Content extraction
     extracted_text: Optional[str] = db.Column(Text, nullable=True)
-    image_date: Optional[datetime] = db.Column(db.DateTime, nullable=True, index=True)
+    image_date: Optional[datetime] = db.Column(db.DateTime(timezone=True), nullable=True, index=True)
     location: Optional[str] = db.Column(db.String(500), nullable=True)
 
     # Metadata
@@ -86,8 +87,8 @@ class ModernImage(db.Model):
     embedding_version: str = db.Column(db.String(50), default='v3', nullable=False)  # v3 = pgvector with ViT-L/14
 
     # Processing tracking
-    processing_started_at: Optional[datetime] = db.Column(db.DateTime, nullable=True)
-    processing_completed_at: Optional[datetime] = db.Column(db.DateTime, nullable=True)
+    processing_started_at: Optional[datetime] = db.Column(db.DateTime(timezone=True), nullable=True)
+    processing_completed_at: Optional[datetime] = db.Column(db.DateTime(timezone=True), nullable=True)
     processing_error: Optional[str] = db.Column(Text, nullable=True)
     processing_attempts: int = db.Column(db.Integer, default=0, nullable=False)
 
@@ -95,11 +96,11 @@ class ModernImage(db.Model):
     user_id: int = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
 
     # Timestamps
-    created_at: datetime = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at: datetime = db.Column(db.DateTime(timezone=True), default=harare_now, nullable=False)
     updated_at: datetime = db.Column(
-        db.DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        db.DateTime(timezone=True),
+        default=harare_now,
+        onupdate=harare_now,
         nullable=False
     )
 
@@ -167,14 +168,14 @@ class ModernImage(db.Model):
     def start_processing(self) -> None:
         """Mark image as processing started."""
         self.status = ImageStatus.PROCESSING
-        self.processing_started_at = datetime.utcnow()
+        self.processing_started_at = harare_now()
         self.processing_attempts += 1
         db.session.commit()
 
     def complete_processing(self) -> None:
         """Mark image processing as completed successfully."""
         self.status = ImageStatus.COMPLETED
-        self.processing_completed_at = datetime.utcnow()
+        self.processing_completed_at = harare_now()
         self.processing_error = None
         db.session.commit()
 
@@ -182,7 +183,7 @@ class ModernImage(db.Model):
         """Mark image processing as failed with error message."""
         self.status = ImageStatus.FAILED
         self.processing_error = error_message
-        self.processing_completed_at = datetime.utcnow()
+        self.processing_completed_at = harare_now()
         db.session.commit()
 
     def retry_processing(self) -> None:
@@ -412,7 +413,7 @@ class ModernImage(db.Model):
 @event.listens_for(ModernImage, 'before_update')
 def update_timestamp(mapper, connection, target):
     """Automatically update the updated_at timestamp."""
-    target.updated_at = datetime.utcnow()
+    target.updated_at = harare_now()
 
 
 @event.listens_for(ModernImage, 'after_insert')

@@ -1,7 +1,7 @@
-from datetime import datetime
 from sqlalchemy import Index, Text
 from sqlalchemy.dialects.mysql import JSON
 from extensions import db
+from utils.time_utils import now as harare_now
 
 class Image(db.Model):
     __tablename__ = 'images'
@@ -23,7 +23,7 @@ class Image(db.Model):
                       default='pending', nullable=False, index=True)
     
     extracted_text = db.Column(Text, nullable=True)
-    image_date = db.Column(db.DateTime, nullable=True, index=True)
+    image_date = db.Column(db.DateTime(timezone=True), nullable=True, index=True)
     location = db.Column(db.String(500), nullable=True)
     
     exif_data = db.Column(JSON, nullable=True)
@@ -33,14 +33,14 @@ class Image(db.Model):
     vector_id = db.Column(db.String(255), nullable=True, index=True)
     embedding_version = db.Column(db.String(50), default='v1', nullable=False)
     
-    processing_started_at = db.Column(db.DateTime, nullable=True)
-    processing_completed_at = db.Column(db.DateTime, nullable=True)
+    processing_started_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    processing_completed_at = db.Column(db.DateTime(timezone=True), nullable=True)
     processing_error = db.Column(Text, nullable=True)
     
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=harare_now, nullable=False)
+    updated_at = db.Column(db.DateTime(timezone=True), default=harare_now, onupdate=harare_now, nullable=False)
     
     faces = db.relationship('Face', backref='image', lazy=True, cascade='all, delete-orphan')
     
@@ -55,19 +55,19 @@ class Image(db.Model):
     
     def mark_processing_started(self):
         self.status = 'processing'
-        self.processing_started_at = datetime.utcnow()
+        self.processing_started_at = harare_now()
         db.session.commit()
     
     def mark_processing_completed(self):
         self.status = 'completed'
-        self.processing_completed_at = datetime.utcnow()
+        self.processing_completed_at = harare_now()
         self.processing_error = None
         db.session.commit()
     
     def mark_processing_failed(self, error_message):
         self.status = 'failed'
         self.processing_error = error_message
-        self.processing_completed_at = datetime.utcnow()
+        self.processing_completed_at = harare_now()
         db.session.commit()
     
     def get_processing_time(self):

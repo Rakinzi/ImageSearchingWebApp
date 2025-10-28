@@ -10,6 +10,21 @@ from io import BytesIO
 from PIL import Image as PILImage
 
 from facenet_pytorch import MTCNN
+DEEPFACE_HOME = os.getenv("DEEPFACE_HOME")
+if not DEEPFACE_HOME:
+    DEEPFACE_HOME = os.path.join(
+        os.getenv("HOME", "/tmp"),
+        ".deepface"
+    )
+    os.environ.setdefault("DEEPFACE_HOME", DEEPFACE_HOME)
+
+try:
+    os.makedirs(DEEPFACE_HOME, exist_ok=True)
+except PermissionError:
+    fallback_home = "/tmp/.deepface"
+    os.environ["DEEPFACE_HOME"] = fallback_home
+    os.makedirs(fallback_home, exist_ok=True)
+
 from deepface import DeepFace
 from sklearn.cluster import DBSCAN
 from flask import current_app

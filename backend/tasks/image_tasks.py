@@ -15,6 +15,7 @@ from utils.helpers import validate_and_process_image, create_directory_structure
 from utils.security import generate_secure_filename, calculate_file_hash
 from middleware.audit_logger import AuditLogger
 from datetime import timedelta
+from utils.time_utils import now as harare_now
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +125,7 @@ def batch_process_images_async(self, user_id: int, file_data_list: List[Dict[str
             'successful_uploads': [],
             'failed_uploads': [],
             'processing_started': [],
-            'start_time': datetime.utcnow().isoformat()
+            'start_time': harare_now().isoformat()
         }
         
         for file_info in file_data_list:
@@ -223,7 +224,7 @@ def batch_process_images_async(self, user_id: int, file_data_list: List[Dict[str
                     'error': str(file_error)
                 })
         
-        results['end_time'] = datetime.utcnow().isoformat()
+        results['end_time'] = harare_now().isoformat()
         results['success_count'] = len(results['successful_uploads'])
         results['failure_count'] = len(results['failed_uploads'])
         results['processing_count'] = len(results['processing_started'])
@@ -319,7 +320,7 @@ def cleanup_processing_queue():
         
         stuck_processing_images = Image.query.filter(
             Image.status == 'processing',
-            Image.processing_started_at < datetime.utcnow() - timedelta(hours=2)
+            Image.processing_started_at < harare_now() - timedelta(hours=2)
         ).all()
         
         reset_count = 0
@@ -358,7 +359,7 @@ def generate_user_processing_report(user_id: int):
         report_data = {
             'user_name': user.name,
             'user_email': user.email,
-            'report_date': datetime.utcnow().isoformat(),
+            'report_date': harare_now().isoformat(),
             'statistics': stats,
             'recommendations': []
         }

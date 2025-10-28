@@ -94,6 +94,9 @@ def trigger_face_processing(current_user):
 @limiter.limit("200 per hour")
 def list_faces(query_args, current_user):
     try:
+        from models.modern_image import ModernImage
+        from sqlalchemy import or_
+
         page = query_args.get('page', 1)
         per_page = query_args.get('per_page', 20)
         status = query_args.get('status')
@@ -102,37 +105,52 @@ def list_faces(query_args, current_user):
         min_confidence = query_args.get('min_confidence', 0.0)
         sort_by = query_args.get('sort_by', 'created_at')
         sort_order = query_args.get('sort_order', 'desc')
-        
-        query = Face.query.join(Image).filter(Image.user_id == current_user.id)
-        
+
+        # Query faces from BOTH legacy images and modern images
+        # Left join on both tables to support all faces
+        query = Face.query.outerjoin(Image, Face.image_id == Image.id).outerjoin(
+            ModernImage, Face.modern_image_id == ModernImage.id
+        ).filter(
+            or_(
+                Image.user_id == current_user.id,
+                ModernImage.user_id == current_user.id
+            )
+        )
+
         if status:
             query = query.filter(Face.status == status)
-        
+
         if person_id:
             query = query.filter(Face.person_id == person_id)
-        
+
         if cluster_id:
             query = query.filter(Face.face_cluster_id == cluster_id)
-        
+
         if min_confidence > 0.0:
             query = query.filter(Face.confidence_score >= min_confidence)
-        
+
         if hasattr(Face, sort_by):
             order_column = getattr(Face, sort_by)
             if sort_order == 'desc':
                 order_column = order_column.desc()
             query = query.order_by(order_column)
-        
+
         pagination = query.paginate(
             page=page,
             per_page=per_page,
             error_out=False
         )
-        
-        faces = [face.to_dict() for face in pagination.items]
-        
+
+        # Build face images list for frontend compatibility
+        face_images = []
+        for face in pagination.items:
+            # Generate full face image URL
+            face_image_url = f"/api/v1/faces/{face.id}/image"
+            face_images.append(face_image_url)
+
         return jsonify({
-            'faces': faces,
+            'faces': [face.to_dict() for face in pagination.items],
+            'face_images': face_images,  # For frontend People page
             'pagination': {
                 'page': page,
                 'per_page': per_page,
@@ -142,7 +160,7 @@ def list_faces(query_args, current_user):
                 'has_prev': pagination.has_prev
             }
         }), 200
-        
+
     except Exception as e:
         current_app.logger.error(f"List faces error: {str(e)}")
         return jsonify({'error': 'Failed to retrieve faces'}), 500
@@ -171,24 +189,38 @@ def get_face(face_id, current_user):
 @limiter.limit("1000 per hour")
 def serve_face_image(face_id, current_user):
     try:
-        face = Face.query.join(Image).filter(
+        from models.modern_image import ModernImage
+        from sqlalchemy import or_
+
+        # Query face from both legacy and modern images
+        face = Face.query.outerjoin(Image, Face.image_id == Image.id).outerjoin(
+            ModernImage, Face.modern_image_id == ModernImage.id
+        ).filter(
             Face.id == face_id,
-            Image.user_id == current_user.id
+            or_(
+                Image.user_id == current_user.id,
+                ModernImage.user_id == current_user.id
+            )
         ).first()
-        
+
         if not face:
             return jsonify({'error': 'Face not found'}), 404
-        
-        if not os.path.exists(face.file_path):
+
+        # Build full path (face.file_path is relative)
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', 'static/uploads')
+        full_face_path = os.path.join(upload_folder, face.file_path)
+
+        if not os.path.exists(full_face_path):
+            current_app.logger.error(f"Face image file not found: {full_face_path}")
             return jsonify({'error': 'Face image file not found'}), 404
-        
+
         return send_file(
-            face.file_path,
+            full_face_path,
             mimetype='image/jpeg',
             as_attachment=False,
             download_name=f"face_{face.face_id}.jpg"
         )
-        
+
     except Exception as e:
         current_app.logger.error(f"Serve face image error: {str(e)}")
         return jsonify({'error': 'Failed to serve face image'}), 500
@@ -411,32 +443,134 @@ def trigger_face_clustering(current_user):
         current_app.logger.error(f"Face clustering trigger error: {str(e)}")
         return jsonify({'error': 'Failed to start face clustering'}), 500
 
+@faces_bp.route('/<int:face_id>/images', methods=['GET'])
+@require_auth
+@limiter.limit("200 per hour")
+def get_face_images(face_id, current_user):
+    """Get all images that contain a specific face (or cluster of similar faces)."""
+    try:
+        from models.modern_image import ModernImage
+        from sqlalchemy import or_
+
+        # Get the face
+        face = Face.query.outerjoin(Image, Face.image_id == Image.id).outerjoin(
+            ModernImage, Face.modern_image_id == ModernImage.id
+        ).filter(
+            Face.id == face_id,
+            or_(
+                Image.user_id == current_user.id,
+                ModernImage.user_id == current_user.id
+            )
+        ).first()
+
+        if not face:
+            return jsonify({'error': 'Face not found'}), 404
+
+        # Get all similar faces (same cluster or find similar using embeddings)
+        similar_face_ids = [face.id]
+
+        # If face has a cluster, get all faces in that cluster
+        if face.face_cluster_id:
+            cluster_faces = Face.query.filter_by(
+                face_cluster_id=face.face_cluster_id
+            ).all()
+            similar_face_ids = [f.id for f in cluster_faces]
+        else:
+            # Otherwise, find similar faces using face service
+            similar_faces = face_service.find_similar_faces(
+                face_id=face.id,
+                user_id=current_user.id,
+                similarity_threshold=0.6,
+                limit=50
+            )
+            similar_face_ids.extend([f.id for f in similar_faces])
+
+        # Get all unique images containing these faces
+        images_data = []
+        seen_image_ids = set()
+
+        for face_obj in Face.query.filter(Face.id.in_(similar_face_ids)).all():
+            # Handle modern images
+            if face_obj.modern_image_id:
+                modern_img = ModernImage.query.get(face_obj.modern_image_id)
+                if modern_img and modern_img.user_id == current_user.id:
+                    img_key = ('modern', modern_img.id)
+                    if img_key not in seen_image_ids:
+                        seen_image_ids.add(img_key)
+                        images_data.append({
+                            'id': modern_img.id,
+                            'filename': modern_img.filename,
+                            'thumbnail_url': f"/api/v2/images/{modern_img.id}/thumbnail",
+                            'full_url': f"/api/v2/images/{modern_img.id}/file",
+                            'created_at': modern_img.created_at.isoformat(),
+                            'face_count': Face.query.filter_by(modern_image_id=modern_img.id).count(),
+                            'type': 'modern'
+                        })
+
+            # Handle legacy images
+            elif face_obj.image_id:
+                legacy_img = Image.query.get(face_obj.image_id)
+                if legacy_img and legacy_img.user_id == current_user.id:
+                    img_key = ('legacy', legacy_img.id)
+                    if img_key not in seen_image_ids:
+                        seen_image_ids.add(img_key)
+                        images_data.append({
+                            'id': legacy_img.id,
+                            'filename': legacy_img.filename,
+                            'thumbnail_url': f"/api/v1/images/{legacy_img.id}/thumbnail",
+                            'full_url': f"/api/v1/images/{legacy_img.id}/file",
+                            'created_at': legacy_img.created_at.isoformat(),
+                            'face_count': Face.query.filter_by(image_id=legacy_img.id).count(),
+                            'type': 'legacy'
+                        })
+
+        return jsonify({
+            'face_id': face_id,
+            'face_cluster_id': face.face_cluster_id,
+            'person_name': face.person_name,
+            'images': images_data,
+            'total_images': len(images_data),
+            'total_similar_faces': len(similar_face_ids)
+        }), 200
+
+    except Exception as e:
+        current_app.logger.error(f"Get face images error: {str(e)}")
+        return jsonify({'error': 'Failed to retrieve face images'}), 500
+
 @faces_bp.route('/<int:face_id>/similar', methods=['GET'])
 @require_auth
 @limiter.limit("100 per hour")
 def find_similar_faces(face_id, current_user):
     try:
-        face = Face.query.join(Image).filter(
+        from models.modern_image import ModernImage
+        from sqlalchemy import or_
+
+        face = Face.query.outerjoin(Image, Face.image_id == Image.id).outerjoin(
+            ModernImage, Face.modern_image_id == ModernImage.id
+        ).filter(
             Face.id == face_id,
-            Image.user_id == current_user.id
+            or_(
+                Image.user_id == current_user.id,
+                ModernImage.user_id == current_user.id
+            )
         ).first()
-        
+
         if not face:
             return jsonify({'error': 'Face not found'}), 404
-        
+
         similar_faces = face_service.find_similar_faces(
             face_id=face.id,
             user_id=current_user.id,
             similarity_threshold=0.7,
             limit=20
         )
-        
+
         return jsonify({
             'face_id': face_id,
             'similar_faces': [face_data.to_dict() for face_data in similar_faces],
             'total_similar': len(similar_faces)
         }), 200
-        
+
     except Exception as e:
         current_app.logger.error(f"Find similar faces error: {str(e)}")
         return jsonify({'error': 'Failed to find similar faces'}), 500

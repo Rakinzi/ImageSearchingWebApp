@@ -12,6 +12,7 @@ from models.user import User
 from services.image_service import ImageService
 from services.face_service import FaceService
 from services.vector_service import VectorService
+from utils.time_utils import now as harare_now, HARARE_TIMEZONE
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ def cleanup_old_logs():
     try:
         logger.info("Starting cleanup of old audit logs")
         
-        cutoff_date = datetime.utcnow() - timedelta(days=90)
+        cutoff_date = harare_now() - timedelta(days=90)
         
         old_logs = AuditLog.query.filter(AuditLog.timestamp < cutoff_date)
         count = old_logs.count()
@@ -40,7 +41,7 @@ def cleanup_old_logs():
                 file_path = os.path.join(logs_dir, filename)
                 
                 if os.path.isfile(file_path):
-                    file_age = datetime.fromtimestamp(os.path.getctime(file_path))
+                    file_age = datetime.fromtimestamp(os.path.getctime(file_path), tz=HARARE_TIMEZONE)
                     
                     if file_age < cutoff_date and filename.endswith('.log'):
                         try:
@@ -139,7 +140,7 @@ def cleanup_inactive_users():
     try:
         logger.info("Starting cleanup of inactive users")
         
-        cutoff_date = datetime.utcnow() - timedelta(days=365)
+        cutoff_date = harare_now() - timedelta(days=365)
         
         inactive_users = User.query.filter(
             User.is_active == False,
@@ -275,20 +276,21 @@ def generate_system_health_report():
             'average_image_size': db.session.query(func.avg(Image.file_size)).scalar() or 0
         }
         
+        seven_days_ago = harare_now() - timedelta(days=7)
         recent_activity = {
             'recent_registrations': User.query.filter(
-                User.created_at >= datetime.utcnow() - timedelta(days=7)
+                User.created_at >= seven_days_ago
             ).count(),
             'recent_uploads': Image.query.filter(
-                Image.created_at >= datetime.utcnow() - timedelta(days=7)
+                Image.created_at >= seven_days_ago
             ).count(),
             'recent_face_detections': Face.query.filter(
-                Face.created_at >= datetime.utcnow() - timedelta(days=7)
+                Face.created_at >= seven_days_ago
             ).count()
         }
         
         health_report = {
-            'report_timestamp': datetime.utcnow().isoformat(),
+            'report_timestamp': harare_now().isoformat(),
             'overall_health': (
                 image_health.get('healthy', False) and
                 face_health.get('healthy', False) and
@@ -342,7 +344,7 @@ def backup_critical_data():
     try:
         logger.info("Starting critical data backup")
         
-        backup_timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+        backup_timestamp = harare_now().strftime('%Y%m%d_%H%M%S')
         backup_dir = f"backups/backup_{backup_timestamp}"
         
         os.makedirs(backup_dir, exist_ok=True)
@@ -382,7 +384,7 @@ def backup_critical_data():
         
         old_backups = []
         if os.path.exists('backups'):
-            cutoff_date = datetime.utcnow() - timedelta(days=7)
+            cutoff_date = harare_now() - timedelta(days=7)
             
             for backup_name in os.listdir('backups'):
                 backup_path = os.path.join('backups', backup_name)

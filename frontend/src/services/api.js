@@ -189,7 +189,9 @@ export const apiService = {
     list: (params = {}) => api.get('/api/v1/faces/', { params }),
     get: (faceId) => api.get(`/api/v1/faces/${faceId}`),
     delete: (faceId) => api.delete(`/api/v1/faces/${faceId}`),
-    search: (faceId) => api.get(`/api/v1/faces/${faceId}/similar`)
+    search: (faceId) => api.get(`/api/v1/faces/${faceId}/similar`),
+    getImages: (faceId) => api.get(`/api/v1/faces/${faceId}/images`),
+    assignPerson: (payload) => api.post('/api/v1/faces/assign-person', payload)
   },
 
   // Health check

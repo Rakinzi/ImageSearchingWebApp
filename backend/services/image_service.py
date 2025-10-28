@@ -1,7 +1,6 @@
 import os
 import logging
 from typing import List, Dict, Optional, Any, Tuple
-from datetime import datetime
 from flask import current_app
 
 from models.image import Image
@@ -17,6 +16,7 @@ from utils.helpers import (
 )
 from utils.security import generate_secure_filename, calculate_file_hash
 from extensions import db
+from utils.time_utils import now as harare_now
 
 logger = logging.getLogger(__name__)
 
@@ -250,7 +250,7 @@ class ImageService:
                 'file_size': image.file_size,
                 'image_date': image.image_date.isoformat() if image.image_date else None,
                 'location': image.location,
-                'updated_at': datetime.utcnow().isoformat()
+                'updated_at': harare_now().isoformat()
             }
             
             return self.vector_service.update_image_metadata(image.vector_id, metadata)
@@ -313,7 +313,7 @@ class ImageService:
             recent_uploads = Image.query.filter_by(
                 user_id=user_id
             ).filter(
-                Image.created_at >= datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+                Image.created_at >= harare_now().replace(hour=0, minute=0, second=0, microsecond=0)
             ).count()
             
             status_breakdown = {status: count for status, count in status_stats}

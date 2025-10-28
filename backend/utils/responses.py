@@ -4,8 +4,9 @@ Modern API response utilities with consistent structure and typing.
 from typing import Any, Dict, List, Optional, Union
 from dataclasses import dataclass, asdict
 from enum import Enum
-from datetime import datetime
 import json
+
+from .time_utils import now as harare_now
 
 
 class ResponseStatus(Enum):
@@ -25,7 +26,7 @@ class ApiResponse:
 
     def __post_init__(self):
         if self.timestamp is None:
-            self.timestamp = datetime.utcnow().isoformat()
+            self.timestamp = harare_now().isoformat()
 
     @classmethod
     def success(cls, data: Any = None, message: str = "Operation successful") -> "ApiResponse":
@@ -71,7 +72,7 @@ class ErrorResponse:
 
     def __post_init__(self):
         if self.timestamp is None:
-            self.timestamp = datetime.utcnow().isoformat()
+            self.timestamp = harare_now().isoformat()
 
     @classmethod
     def validation_error(cls, message: str, details: Dict[str, Any] = None) -> "ErrorResponse":

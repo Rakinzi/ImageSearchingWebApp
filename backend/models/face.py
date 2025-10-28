@@ -1,7 +1,7 @@
-from datetime import datetime
 from sqlalchemy import Index, Text
 from sqlalchemy.dialects.mysql import JSON
 from extensions import db
+from utils.time_utils import now as harare_now
 
 class Face(db.Model):
     __tablename__ = 'faces'
@@ -35,11 +35,11 @@ class Face(db.Model):
     
     processing_error = db.Column(Text, nullable=True)
     
-    image_id = db.Column(db.Integer, db.ForeignKey('images.id'), nullable=False, index=True)
+    image_id = db.Column(db.Integer, db.ForeignKey('images.id'), nullable=True, index=True)
     modern_image_id = db.Column(db.Integer, db.ForeignKey('modern_images.id'), nullable=True, index=True)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=harare_now, nullable=False)
+    updated_at = db.Column(db.DateTime(timezone=True), default=harare_now, onupdate=harare_now, nullable=False)
     
     similar_faces = db.relationship(
         'Face',
@@ -142,7 +142,7 @@ face_similarities = db.Table(
     db.Column('face_id_1', db.Integer, db.ForeignKey('faces.id'), primary_key=True),
     db.Column('face_id_2', db.Integer, db.ForeignKey('faces.id'), primary_key=True),
     db.Column('similarity_score', db.Float, nullable=False),
-    db.Column('created_at', db.DateTime, default=datetime.utcnow),
+    db.Column('created_at', db.DateTime(timezone=True), default=harare_now),
     Index('ix_face_similarities_score', 'similarity_score'),
     Index('ix_face_similarities_created', 'created_at')
 )
