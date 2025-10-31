@@ -416,8 +416,6 @@ def update_face_embeddings():
                 if os.path.exists(face.file_path):
                     embedding = face_service.generate_face_embedding(face.file_path)
                     if embedding is not None:
-                        face.set_embedding(embedding)
-                        
                         metadata = {
                             'image_id': face.image_id,
                             'face_id': face.face_id,

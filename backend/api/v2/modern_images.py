@@ -459,29 +459,54 @@ def test_search_images():
         # Get all users' images for testing (you can limit to specific test user if needed)
         # For now, we'll search across all images
         from models.modern_image import ModernImage
+        results = []
 
         if search_type == 'semantic':
             # Semantic search across all users
             from services.vector_service import VectorService
             vector_service = VectorService()
 
-            # Use text_to_image_search which handles everything
-            similar_results = vector_service.text_to_image_search(
+            # First try pgvector (primary backend)
+            similar_results = vector_service.text_to_image_search_pgvector(
                 query,
-                limit=limit * 2,  # Get more to filter
+                limit=limit,
                 similarity_threshold=similarity_threshold
             )
+            using_pgvector = bool(similar_results)
+
+            # Optional fallback to ChromaDB if pgvector has no results (e.g., migration incomplete)
+            if not similar_results:
+                logger.warning("pgvector search returned no results, falling back to ChromaDB",
+                               query=query,
+                               search_type=search_type)
+                similar_results = vector_service.text_to_image_search(
+                    query,
+                    limit=limit * 2,  # fetch extra in case of filtering
+                    similarity_threshold=similarity_threshold
+                )
 
             # Get corresponding images
-            results = []
             for result in similar_results:
-                vector_id = result['id']
                 similarity = result['similarity']
 
-                image = ModernImage.query.filter_by(
-                    vector_id=vector_id,
-                    status=ImageStatus.COMPLETED
-                ).first()
+                if using_pgvector:
+                    # ids come back as stringified DB IDs for pgvector
+                    try:
+                        image_id = int(result['id'])
+                    except (TypeError, ValueError):
+                        logger.warning("Skipping pgvector result with invalid ID", result_id=result.get('id'))
+                        continue
+
+                    image = ModernImage.query.filter_by(
+                        id=image_id,
+                        status=ImageStatus.COMPLETED
+                    ).first()
+                else:
+                    vector_id = result['id']
+                    image = ModernImage.query.filter_by(
+                        vector_id=vector_id,
+                        status=ImageStatus.COMPLETED
+                    ).first()
 
                 if image:
                     results.append({

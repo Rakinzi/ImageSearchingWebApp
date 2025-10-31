@@ -102,7 +102,7 @@ services:
     command:
       - |
         echo "Checking CLIP model cache for Celery worker..."
-        python3.11 -c "
+        python3 -c "
         import os
         cache_dir = os.path.expanduser('~/.cache/huggingface/hub')
         model_cached = os.path.exists(cache_dir) and any(
@@ -120,7 +120,7 @@ services:
             del model
         " || echo "Model will be downloaded on first use"
         echo "Starting Celery worker..."
-        exec celery -A app.celery worker --loglevel=info --concurrency=2
+        exec celery -A app.celery worker --loglevel=info --pool=solo --concurrency=1 --max-tasks-per-child=1
     environment:
       - FLASK_ENV=${FLASK_ENV:-production}
       - DATABASE_URL=postgresql://${POSTGRES_USER:-app_user}:${POSTGRES_PASSWORD:-secure_app_password}@postgresql:5432/${POSTGRES_DB:-image_search_db}

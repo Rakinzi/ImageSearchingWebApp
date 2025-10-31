@@ -13,6 +13,11 @@ from pathlib import Path
 from flask import current_app
 from werkzeug.datastructures import FileStorage
 import structlog
+import cv2
+import numpy as np
+import torch
+from facenet_pytorch import MTCNN
+from deepface import DeepFace
 
 from models.modern_image import ModernImage, ImageStatus
 from models.face import Face
@@ -46,13 +51,140 @@ class ModernImageService:
     def __init__(self):
         self.vector_service = VectorService()
         self.upload_base_path = None
+        self.device = None
+        self.mtcnn = None
+        self.face_detection_threshold = None
         self._initialized = False
 
     def _ensure_initialized(self):
         """Ensure the service is initialized with Flask app context"""
         if not self._initialized:
             self.upload_base_path = Path(current_app.config.get('UPLOAD_FOLDER', 'static/uploads'))
+            self.face_detection_threshold = current_app.config.get('FACE_DETECTION_THRESHOLD', 0.99)
+            self._initialize_face_detector()
             self._initialized = True
+
+    def _get_optimal_device(self) -> torch.device:
+        if torch.cuda.is_available():
+            logger.info("Using CUDA device for modern image face processing")
+            return torch.device('cuda')
+        if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+            logger.info("Using MPS device for modern image face processing")
+            return torch.device('mps')
+        logger.info("Using CPU device for modern image face processing")
+        return torch.device('cpu')
+
+    def _initialize_face_detector(self) -> None:
+        if self.mtcnn is not None:
+            return
+
+        if self.device is None:
+            self.device = self._get_optimal_device()
+
+        try:
+            self.mtcnn = MTCNN(
+                keep_all=True,
+                device=self.device,
+                min_face_size=20,
+                thresholds=[0.6, 0.7, 0.8],
+                factor=0.709,
+                post_process=True
+            )
+            logger.info("Modern image MTCNN face detector initialized successfully")
+        except Exception as exc:
+            logger.error("Failed to initialize modern image face detector", error=str(exc))
+            raise
+
+    def _calculate_face_quality(self, face_region: np.ndarray) -> float:
+        try:
+            rgb_region = cv2.cvtColor(face_region, cv2.COLOR_BGR2RGB)
+            gray = cv2.cvtColor(rgb_region, cv2.COLOR_RGB2GRAY)
+
+            laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
+
+            height, width = rgb_region.shape[:2]
+            size_score = min(1.0, (height * width) / (100 * 100))
+
+            brightness = np.mean(gray)
+            brightness_score = 1.0 - abs(brightness - 128) / 128
+
+            quality = (laplacian_var / 1000 + size_score + brightness_score) / 3
+            return float(min(1.0, max(0.0, quality)))
+        except Exception as exc:
+            logger.debug("Failed to calculate face quality", error=str(exc))
+            return 0.5
+
+    def _detect_faces_with_deepface(self, file_path: Path) -> List[Dict[str, Any]]:
+        try:
+            detections = DeepFace.extract_faces(
+                img_path=str(file_path),
+                detector_backend='opencv',
+                enforce_detection=False,
+                align=True
+            )
+        except Exception as exc:
+            logger.warning("DeepFace fallback detection failed",
+                           file_path=str(file_path),
+                           error=str(exc))
+            return []
+
+        formatted = []
+        for detection in detections or []:
+            face_img = detection.get('face')
+            facial_area = detection.get('facial_area', {})
+            confidence = float(detection.get('confidence', 0.0) or 0.0)
+            if face_img is None or not facial_area:
+                continue
+            formatted.append({
+                'face_img': face_img,
+                'facial_area': facial_area,
+                'confidence': confidence
+            })
+        return formatted
+
+    def _generate_face_embedding(self, face_path: Path) -> Optional[np.ndarray]:
+        try:
+            embedding_result = DeepFace.represent(
+                img_path=str(face_path),
+                model_name="Facenet512",
+                enforce_detection=False,
+                detector_backend='mtcnn'
+            )
+        except Exception as exc:
+            logger.warning("Failed to generate face embedding with DeepFace",
+                           face_path=str(face_path),
+                           error=str(exc))
+            return None
+
+        if not embedding_result:
+            return None
+
+        embedding_data = embedding_result[0] if isinstance(embedding_result, list) else embedding_result
+        embedding = embedding_data.get('embedding') if isinstance(embedding_data, dict) else embedding_data
+        if embedding is None:
+            return None
+
+        return np.array(embedding, dtype=np.float32)
+
+    def _store_face_embedding(self, face: Face, embedding: np.ndarray, image: ModernImage) -> bool:
+        try:
+            metadata = {
+                'image_id': image.id,
+                'modern_image_id': image.id,
+                'user_id': image.user_id,
+                'confidence_score': face.confidence_score,
+                'quality_score': face.quality_score
+            }
+            stored = self.vector_service.store_face_vector(face.face_id, embedding, metadata)
+            if not stored:
+                logger.debug("Failed to store face embedding in vector service",
+                             face_id=face.face_id)
+            return stored
+        except Exception as exc:
+            logger.debug("Error while storing face embedding",
+                         face_id=face.face_id,
+                         error=str(exc))
+            return False
 
     def create_image_record(
         self,
@@ -236,6 +368,7 @@ class ModernImageService:
             True if deletion was successful, False otherwise
         """
         try:
+            self._ensure_initialized()
             # Delete from vector database
             if image.vector_id:
                 self.vector_service.remove_image_vector(image.vector_id)
@@ -623,85 +756,150 @@ class ModernImageService:
     def _detect_and_store_faces(self, image: ModernImage, file_path: Path) -> None:
         """Detect faces and store face data directly for modern images."""
         try:
-            import cv2
-            import numpy as np
+            self._ensure_initialized()
             from models.face import Face
             from utils.security import generate_secure_filename
 
-            # Use DeepFace for face detection
-            from deepface import DeepFace
-
-            # Detect faces in the image
-            try:
-                detections = DeepFace.extract_faces(
-                    img_path=str(file_path),
-                    detector_backend='opencv',
-                    enforce_detection=False,
-                    align=True
-                )
-            except Exception as detection_error:
-                logger.warning("Face detection failed",
-                              image_id=image.id,
-                              error=str(detection_error))
+            image_bgr = cv2.imread(str(file_path))
+            if image_bgr is None:
+                logger.warning("Failed to load image for face detection",
+                               image_id=image.id,
+                               file_path=str(file_path))
                 return
 
+            image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+            boxes, probs = self.mtcnn.detect(image_rgb)
+
+            detections = [
+                (box, prob) for box, prob in zip(boxes or [], probs or [])
+                if prob is not None and prob >= self.face_detection_threshold
+            ]
+
+            fallback_detections = []
             if not detections:
-                logger.info("No faces detected in image", image_id=image.id)
+                fallback_detections = self._detect_faces_with_deepface(file_path)
+
+            if not detections and not fallback_detections:
+                logger.info("No faces detected using MTCNN or DeepFace",
+                            image_id=image.id,
+                            threshold=self.face_detection_threshold)
                 return
 
+            height, width = image_rgb.shape[:2]
+            expand_ratio = 0.3
             user_paths = self._create_user_directories(image.user_id)
             faces_saved = 0
 
-            for idx, detection in enumerate(detections):
-                try:
-                    confidence = detection.get('confidence', 0.0)
+            def _persist_face(face_idx: int,
+                              face_region: np.ndarray,
+                              bounding_box: Dict[str, float],
+                              confidence: float) -> None:
+                nonlocal faces_saved
+                face_id = f"face_{image.id}_{face_idx}_{generate_secure_filename('face.jpg')[:16]}"
+                face_filename = f"{face_id}.jpg"
+                face_path = user_paths['faces'] / face_filename
 
-                    # Skip low confidence detections
+                if not cv2.imwrite(str(face_path), face_region):
+                    logger.debug("Failed to write face crop",
+                                 image_id=image.id,
+                                 face_index=face_idx)
+                    return
+
+                with open(face_path, 'rb') as f:
+                    from utils.security import calculate_file_hash
+                    face_checksum = calculate_file_hash(f.read())
+
+                quality_score = self._calculate_face_quality(face_region)
+
+                face = Face(
+                    face_id=face_id,
+                    file_path=str(face_path.relative_to(self.upload_base_path)),
+                    checksum=face_checksum,
+                    bounding_box=bounding_box,
+                    confidence_score=float(confidence),
+                    quality_score=quality_score,
+                    status='pending',
+                    image_id=None,
+                    modern_image_id=image.id
+                )
+
+                db.session.add(face)
+                db.session.flush()
+
+                embedding = self._generate_face_embedding(face_path)
+                if embedding is not None:
+                    stored = self._store_face_embedding(face, embedding, image)
+                    face.status = 'processed' if stored else 'failed'
+                else:
+                    face.status = 'failed'
+
+                faces_saved += 1
+
+            for idx, (box, confidence) in enumerate(detections):
+                try:
+                    x1, y1, x2, y2 = map(int, box)
+
+                    new_x1 = max(0, int(x1 - (x2 - x1) * expand_ratio))
+                    new_y1 = max(0, int(y1 - (y2 - y1) * expand_ratio))
+                    new_x2 = min(width, int(x2 + (x2 - x1) * expand_ratio))
+                    new_y2 = min(height, int(y2 + (y2 - y1) * expand_ratio * 1.5))
+
+                    face_region = image_bgr[new_y1:new_y2, new_x1:new_x2]
+                    if face_region.size == 0:
+                        continue
+
+                    bounding_box = {
+                        'x1': float(x1),
+                        'y1': float(y1),
+                        'x2': float(x2),
+                        'y2': float(y2),
+                        'expanded_x1': float(new_x1),
+                        'expanded_y1': float(new_y1),
+                        'expanded_x2': float(new_x2),
+                        'expanded_y2': float(new_y2)
+                    }
+
+                    _persist_face(idx, face_region, bounding_box, confidence)
+
+                except Exception as face_error:
+                    logger.warning("Failed to save face from MTCNN detection",
+                                  image_id=image.id,
+                                  face_idx=idx,
+                                  error=str(face_error))
+                    continue
+
+            starting_index = len(detections)
+            for offset, detection in enumerate(fallback_detections):
+                try:
+                    confidence = detection['confidence']
                     if confidence < 0.5:
                         continue
 
-                    facial_area = detection.get('facial_area', {})
-                    face_img = detection.get('face')
+                    facial_area = detection['facial_area']
+                    face_img = detection['face_img']
 
-                    if face_img is None or not facial_area:
-                        continue
-
-                    # Generate unique face ID and filename
-                    face_id = f"face_{image.id}_{idx}_{generate_secure_filename('face.jpg')[:16]}"
-                    face_filename = f"{face_id}.jpg"
-                    face_path = user_paths['faces'] / face_filename
-
-                    # Convert face image to uint8 if needed
                     if face_img.dtype != np.uint8:
-                        face_img = (face_img * 255).astype(np.uint8)
+                        face_img = np.clip(face_img * 255, 0, 255).astype(np.uint8)
 
-                    # Save face crop
-                    cv2.imwrite(str(face_path), cv2.cvtColor(face_img, cv2.COLOR_RGB2BGR))
+                    face_region = cv2.cvtColor(face_img, cv2.COLOR_RGB2BGR)
 
-                    # Calculate file checksum
-                    with open(face_path, 'rb') as f:
-                        from utils.security import calculate_file_hash
-                        face_checksum = calculate_file_hash(f.read())
+                    bounding_box = {
+                        'x1': float(facial_area.get('x', 0)),
+                        'y1': float(facial_area.get('y', 0)),
+                        'x2': float(facial_area.get('x', 0) + facial_area.get('w', 0)),
+                        'y2': float(facial_area.get('y', 0) + facial_area.get('h', 0)),
+                        'expanded_x1': float(facial_area.get('x', 0)),
+                        'expanded_y1': float(facial_area.get('y', 0)),
+                        'expanded_x2': float(facial_area.get('x', 0) + facial_area.get('w', 0)),
+                        'expanded_y2': float(facial_area.get('y', 0) + facial_area.get('h', 0))
+                    }
 
-                    # Create Face record with modern_image_id
-                    face = Face(
-                        face_id=face_id,
-                        file_path=str(face_path.relative_to(self.upload_base_path)),
-                        checksum=face_checksum,
-                        bounding_box=facial_area,
-                        confidence_score=float(confidence),
-                        status='processed',
-                        image_id=None,  # Null for modern images (use modern_image_id instead)
-                        modern_image_id=image.id  # Link to ModernImage
-                    )
-
-                    db.session.add(face)
-                    faces_saved += 1
+                    _persist_face(starting_index + offset, face_region, bounding_box, confidence)
 
                 except Exception as face_error:
-                    logger.warning("Failed to save face",
+                    logger.warning("Failed to save face from DeepFace fallback",
                                   image_id=image.id,
-                                  face_idx=idx,
+                                  face_idx=starting_index + offset,
                                   error=str(face_error))
                     continue
 
@@ -709,9 +907,10 @@ class ModernImageService:
                 db.session.commit()
                 logger.info("Face detection completed for modern image",
                            image_id=image.id,
-                           faces_detected=len(detections),
+                           faces_detected=len(detections) + len(fallback_detections),
                            faces_saved=faces_saved)
             else:
+                db.session.rollback()
                 logger.info("No valid faces saved for image", image_id=image.id)
 
         except Exception as e:
@@ -755,6 +954,7 @@ class ModernImageService:
     def _delete_image_files(self, image: ModernImage) -> None:
         """Delete physical image files."""
         try:
+            self._ensure_initialized()
             # Delete main image file
             if image.file_path:
                 main_file = self.upload_base_path / image.file_path

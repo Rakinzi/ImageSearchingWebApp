@@ -26,13 +26,16 @@ class VectorService:
         self.chroma_client = None  # Keep for backward compatibility during migration
         self.image_collection = None
         self.face_collection = None
+        self.vector_db_type = None
         self._initialized = False
 
     def _ensure_initialized(self):
         """Ensure the service is initialized with Flask app context"""
         if not self._initialized:
+            self.vector_db_type = current_app.config.get('VECTOR_DB_TYPE', 'chromadb').lower()
             self._initialize_clip_model()
-            self._initialize_chroma_db()
+            if self.vector_db_type == 'chromadb':
+                self._initialize_chroma_db()
             self._initialized = True
 
     def _get_optimal_device(self):
@@ -174,6 +177,29 @@ class VectorService:
     def store_face_vector(self, face_id: str, embedding: np.ndarray, metadata: Dict[str, Any]) -> bool:
         self._ensure_initialized()
         try:
+            from models.face import Face
+
+            face = Face.query.filter_by(face_id=face_id).first()
+            if not face:
+                logger.error(f"Face {face_id} not found while storing embedding")
+                return False
+
+            face.set_embedding(embedding)
+
+            if self.vector_db_type == 'pgvector':
+                # Persist optional metadata fields when provided
+                if metadata:
+                    if 'confidence_score' in metadata and face.confidence_score is None:
+                        face.confidence_score = metadata['confidence_score']
+                    if 'quality_score' in metadata and face.quality_score is None:
+                        face.quality_score = metadata['quality_score']
+
+                return True
+
+            if not self.face_collection:
+                logger.error("Chroma face collection is not initialized")
+                return False
+
             self.face_collection.upsert(
                 ids=[face_id],
                 embeddings=[embedding.tolist()],
@@ -231,7 +257,44 @@ class VectorService:
                            filter_metadata: Dict[str, Any] = None) -> List[Dict[str, Any]]:
         self._ensure_initialized()
         try:
+            if self.vector_db_type == 'pgvector':
+                from models.face import Face
+
+                user_id = None
+                if filter_metadata:
+                    user_id = filter_metadata.get('user_id')
+
+                results = Face.search_by_embedding(
+                    query_embedding=query_embedding.tolist(),
+                    user_id=user_id,
+                    limit=limit,
+                    similarity_threshold=similarity_threshold
+                )
+
+                formatted_results: List[Dict[str, Any]] = []
+                for face, similarity in results:
+                    distance = 2 * (1 - similarity)
+                    metadata = {
+                        'image_id': face.image_id,
+                        'modern_image_id': face.modern_image_id,
+                        'confidence_score': face.confidence_score,
+                        'quality_score': face.quality_score,
+                        'person_id': face.person_id
+                    }
+                    formatted_results.append({
+                        'id': face.face_id,
+                        'similarity': float(similarity),
+                        'distance': float(distance),
+                        'metadata': metadata
+                    })
+
+                return formatted_results
+
             where_clause = filter_metadata if filter_metadata else None
+
+            if not self.face_collection:
+                logger.error("Chroma face collection is not initialized")
+                return []
 
             results = self.face_collection.query(
                 query_embeddings=[query_embedding.tolist()],

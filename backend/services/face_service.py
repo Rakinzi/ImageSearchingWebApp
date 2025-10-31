@@ -31,6 +31,7 @@ from flask import current_app
 
 from models.face import Face
 from models.image import Image
+from models.modern_image import ModernImage
 from services.vector_service import VectorService
 from utils.helpers import generate_unique_id
 from utils.security import generate_secure_filename
@@ -266,8 +267,6 @@ class FaceService:
                     
                     embedding = self.generate_face_embedding(face_data['file_path'])
                     if embedding is not None:
-                        face.set_embedding(embedding)
-                        
                         attributes = self.analyze_face_attributes(face_data['file_path'])
                         face.age_estimate = attributes.get('age_estimate')
                         face.gender_estimate = attributes.get('gender_estimate')
@@ -322,11 +321,20 @@ class FaceService:
     
     def cluster_user_faces(self, user_id: int) -> Dict[str, Any]:
         try:
-            faces = Face.query.join(Image).filter(
-                Image.user_id == user_id,
-                Face.status == 'processed',
-                Face.embedding_vector.isnot(None)
-            ).all()
+            faces = (Face.query
+                     .outerjoin(Image, Face.image_id == Image.id)
+                     .outerjoin(ModernImage, Face.modern_image_id == ModernImage.id)
+                     .filter(
+                         db.or_(
+                             Image.user_id == user_id,
+                             ModernImage.user_id == user_id
+                         )
+                     )
+                     .filter(
+                         Face.status == 'processed',
+                         Face.embedding.isnot(None)
+                     )
+                     .all())
             
             if len(faces) < 2:
                 return {
@@ -429,12 +437,19 @@ class FaceService:
                           similarity_threshold: float = 0.7, 
                           limit: int = 20) -> List[Face]:
         try:
-            face = Face.query.join(Image).filter(
-                Face.id == face_id,
-                Image.user_id == user_id
-            ).first()
+            face = (Face.query
+                    .outerjoin(Image, Face.image_id == Image.id)
+                    .outerjoin(ModernImage, Face.modern_image_id == ModernImage.id)
+                    .filter(Face.id == face_id)
+                    .filter(
+                        db.or_(
+                            Image.user_id == user_id,
+                            ModernImage.user_id == user_id
+                        )
+                    )
+                    .first())
             
-            if not face or not face.embedding_vector:
+            if not face:
                 return []
             
             query_embedding = face.get_embedding()

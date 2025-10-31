@@ -66,7 +66,7 @@
               <div class="space-y-2" @click.stop>
                 <Input
                   v-model="labelInputs[face.id]"
-                  placeholder="Add a name (e.g. Ronaldo)"
+                  placeholder="Add a name"
                   class="h-9"
                   @keyup.enter="saveLabel(face)"
                 />

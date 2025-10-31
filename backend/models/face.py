@@ -1,5 +1,9 @@
+from typing import List, Optional, Tuple
+
 from sqlalchemy import Index, Text
 from sqlalchemy.dialects.mysql import JSON
+from pgvector.sqlalchemy import Vector
+
 from extensions import db
 from utils.time_utils import now as harare_now
 
@@ -16,6 +20,7 @@ class Face(db.Model):
     confidence_score = db.Column(db.Float, nullable=False)
     
     embedding_vector = db.Column(Text, nullable=True)
+    embedding = db.Column(Vector(512), nullable=True)
     embedding_version = db.Column(db.String(50), default='v1', nullable=False)
     
     face_cluster_id = db.Column(db.String(100), nullable=True, index=True)
@@ -61,13 +66,24 @@ class Face(db.Model):
     
     def set_embedding(self, embedding_array):
         import json
-        self.embedding_vector = json.dumps(embedding_array.tolist())
+        import numpy as np
+
+        if isinstance(embedding_array, np.ndarray):
+            embedding_list = embedding_array.astype(float).tolist()
+        else:
+            embedding_list = [float(x) for x in embedding_array]
+
+        self.embedding_vector = json.dumps(embedding_list)
+        self.embedding = embedding_list
+        self.embedding_version = 'v2_pgvector'
     
     def get_embedding(self):
         import json
         import numpy as np
+        if self.embedding is not None:
+            return np.array(self.embedding, dtype=np.float32)
         if self.embedding_vector:
-            return np.array(json.loads(self.embedding_vector))
+            return np.array(json.loads(self.embedding_vector), dtype=np.float32)
         return None
     
     def mark_processed(self):
@@ -113,8 +129,10 @@ class Face(db.Model):
             'updated_at': self.updated_at.isoformat()
         }
         
-        if include_embedding and self.embedding_vector:
-            data['embedding_vector'] = self.get_embedding().tolist()
+        if include_embedding:
+            embedding = self.get_embedding()
+            if embedding is not None:
+                data['embedding_vector'] = embedding.tolist()
         
         return data
     
@@ -133,6 +151,55 @@ class Face(db.Model):
     @classmethod
     def get_by_person(cls, person_id):
         return cls.query.filter_by(person_id=person_id).all()
+    
+    @classmethod
+    def search_by_embedding(cls,
+                            query_embedding: List[float],
+                            user_id: Optional[int] = None,
+                            limit: int = 20,
+                            similarity_threshold: float = 0.7) -> List[Tuple['Face', float]]:
+        """
+        Search faces by pgvector cosine similarity.
+
+        Args:
+            query_embedding: 512-dim FaceNet embedding
+            user_id: Optional filter for user (supports legacy and modern images)
+            limit: Maximum number of results
+            similarity_threshold: Minimum similarity score (0-1, higher = stricter)
+
+        Returns:
+            List of (Face, similarity) tuples sorted by similarity descending.
+        """
+        from sqlalchemy import and_, or_
+        from models.modern_image import ModernImage
+        from models.image import Image
+
+        distance = cls.embedding.cosine_distance(query_embedding)
+        similarity = (1 - (distance / 2)).label('similarity')
+
+        query = (db.session.query(cls, similarity)
+                 .filter(cls.embedding.isnot(None)))
+
+        if user_id is not None:
+            query = (query.outerjoin(ModernImage, cls.modern_image_id == ModernImage.id)
+                          .outerjoin(Image, cls.image_id == Image.id)
+                          .filter(
+                              or_(
+                                  and_(ModernImage.id.isnot(None), ModernImage.user_id == user_id),
+                                  and_(Image.id.isnot(None), Image.user_id == user_id)
+                              )
+                          ))
+
+        distance_threshold = 2 * (1 - similarity_threshold)
+        query = query.filter(distance < distance_threshold)
+
+        query = query.order_by(distance.asc()).limit(limit)
+
+        results: List[Tuple['Face', float]] = []
+        for face, sim in query.all():
+            results.append((face, float(sim)))
+
+        return results
     
     def __repr__(self):
         return f'<Face {self.face_id} - {self.status}>'
