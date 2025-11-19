@@ -161,7 +161,7 @@ class AIConfig(BaseSettings):
 
     @validator('vector_db_type')
     def validate_vector_db_type(cls, v):
-        allowed_types = ['chromadb', 'pinecone']
+        allowed_types = ['chromadb', 'pinecone', 'pgvector']
         if v not in allowed_types:
             raise ValueError(f'Vector DB type must be one of: {allowed_types}')
         return v

@@ -1,0 +1,210 @@
+services:
+  # PostgreSQL Database with pgvector extension
+  postgresql:
+    image: pgvector/pgvector:pg15
+    container_name: image_search_postgresql
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-image_search_db}
+      POSTGRES_USER: ${POSTGRES_USER:-app_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_app_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgresql_data:/var/lib/postgresql/data
+      - ./backend/init-pgvector.sql:/docker-entrypoint-initdb.d/init-pgvector.sql
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app_user} -d ${POSTGRES_DB:-image_search_db}"]
+      timeout: 10s
+      retries: 5
+      interval: 30s
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: image_search_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: image_search_rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-secure_rabbit_password}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - app_network
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backend Flask Application
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.cpu-only
+    image: image_search_backend:latest
+    container_name: image_search_app
+    restart: unless-stopped
+    environment:
+      - FLASK_ENV=${FLASK_ENV:-production}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-app_user}:${POSTGRES_PASSWORD:-secure_app_password}@postgresql:5432/${POSTGRES_DB:-image_search_db}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-pyamqp://admin:secure_rabbit_password@rabbitmq:5672//}
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-super-secret-jwt-key-change-this}
+      - RATE_LIMIT_STORAGE_URL=redis://redis:6379/2
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend/static:/app/static
+      - ./backend/logs:/app/logs
+      - ./backend/chroma_db:/app/chroma_db
+      - ./backend/model_cache:/home/app/.cache
+      - ./backend/deepface_models:/home/app/.deepface
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - app_network
+
+  # Celery Worker for Background Tasks
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.cpu-only
+    image: image_search_backend:latest
+    container_name: image_search_celery_worker
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        echo "Checking CLIP model cache for Celery worker..."
+        python3 -c "
+        import os
+        cache_dir = os.path.expanduser('~/.cache/huggingface/hub')
+        model_cached = os.path.exists(cache_dir) and any(
+            'vit' in d.lower() and 'l' in d.lower()
+            for root, dirs, files in os.walk(cache_dir)
+            for d in dirs
+        )
+        if model_cached:
+            print('✅ CLIP model already cached')
+        else:
+            print('📦 Downloading CLIP model (~1.7GB, one-time)...')
+            import torch, open_clip
+            model, _, _ = open_clip.create_model_and_transforms('ViT-L-14', pretrained='laion2b_s32b_b82k', device='cpu')
+            print('✅ Model cached!')
+            del model
+        " || echo "Model will be downloaded on first use"
+        echo "Starting Celery worker..."
+        exec celery -A app.celery worker --loglevel=info --pool=solo --concurrency=1 --max-tasks-per-child=1
+    environment:
+      - FLASK_ENV=${FLASK_ENV:-production}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-app_user}:${POSTGRES_PASSWORD:-secure_app_password}@postgresql:5432/${POSTGRES_DB:-image_search_db}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-pyamqp://admin:secure_rabbit_password@rabbitmq:5672//}
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    volumes:
+      - ./backend/static:/app/static
+      - ./backend/logs:/app/logs
+      - ./backend/chroma_db:/app/chroma_db
+      - ./backend/model_cache:/home/app/.cache
+      - ./backend/deepface_models:/home/app/.deepface
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - app_network
+
+  # Celery Beat Scheduler
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.cpu-only
+    image: image_search_backend:latest
+    container_name: image_search_celery_beat
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "-c"]
+    command: ["celery -A app.celery beat --loglevel=info --schedule=/tmp/celerybeat-schedule"]
+    environment:
+      - FLASK_ENV=${FLASK_ENV:-production}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-app_user}:${POSTGRES_PASSWORD:-secure_app_password}@postgresql:5432/${POSTGRES_DB:-image_search_db}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-pyamqp://admin:secure_rabbit_password@rabbitmq:5672//}
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    volumes:
+      - ./backend/logs:/app/logs
+      - ./backend/model_cache:/home/app/.cache
+      - ./backend/deepface_models:/home/app/.deepface
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - app_network
+
+  # Frontend Vue.js Application with Nginx
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # For production, nginx proxies to backend, so we don't need external URL
+        VITE_API_URL: ""
+    image: image_search_frontend:latest
+    container_name: image_search_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - app
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+
+volumes:
+  postgresql_data:
+  redis_data:
+  rabbitmq_data:
+
+networks:
+  app_network:
+    driver: bridge

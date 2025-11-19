@@ -184,14 +184,19 @@ export const apiService = {
     reprocess: (imageId) => api.post(`/api/v2/images/${imageId}/reprocess`)
   },
 
-  // Faces
+  // Faces (v2 API with pgvector)
   faces: {
-    list: (params = {}) => api.get('/api/v1/faces/', { params }),
-    get: (faceId) => api.get(`/api/v1/faces/${faceId}`),
-    delete: (faceId) => api.delete(`/api/v1/faces/${faceId}`),
-    search: (faceId) => api.get(`/api/v1/faces/${faceId}/similar`),
-    getImages: (faceId) => api.get(`/api/v1/faces/${faceId}/images`),
-    assignPerson: (payload) => api.post('/api/v1/faces/assign-person', payload)
+    list: (params = {}) => api.get('/api/v2/faces/', { params }),
+    get: (faceId) => api.get(`/api/v2/faces/${faceId}`),
+    delete: (faceId) => api.delete(`/api/v2/faces/${faceId}`),
+    search: (faceId) => api.get(`/api/v2/faces/${faceId}/similar`),
+    getImages: (faceId) => api.get(`/api/v2/faces/${faceId}/images`),
+    assignPerson: (payload) => api.post('/api/v2/faces/assign-person', payload),
+    process: () => api.post('/api/v2/faces/process'),
+    cluster: () => api.post('/api/v2/faces/cluster'),
+    getStats: () => api.get('/api/v2/faces/stats'),
+    getClusters: () => api.get('/api/v2/faces/clusters'),
+    getPersons: () => api.get('/api/v2/faces/persons')
   },
 
   // Health check

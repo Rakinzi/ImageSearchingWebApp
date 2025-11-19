@@ -22,9 +22,12 @@ def init_v2_api_docs(app):
 
 # Import blueprints
 from .modern_images import modern_images_bp, upload_bp
+from .faces import faces_bp_v2
 
 # Register blueprints
 # Upload blueprint uses plain Flask to handle multipart/form-data
 v2_bp.register_blueprint(upload_bp, url_prefix='/images')
 # Other image endpoints use flask-smorest for API docs
 v2_bp.register_blueprint(modern_images_bp, url_prefix='/images')
+# Face detection and recognition endpoints
+v2_bp.register_blueprint(faces_bp_v2)

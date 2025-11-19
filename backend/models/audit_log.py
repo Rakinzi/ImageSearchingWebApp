@@ -1,5 +1,5 @@
 from sqlalchemy import Index, Text
-from sqlalchemy.dialects.mysql import JSON
+from sqlalchemy.dialects.postgresql import JSONB
 from extensions import db
 from datetime import timedelta
 from utils.time_utils import now as harare_now
@@ -27,13 +27,13 @@ class AuditLog(db.Model):
     
     request_method = db.Column(db.String(10), nullable=True)
     request_path = db.Column(db.String(500), nullable=True)
-    request_data = db.Column(JSON, nullable=True)
-    
+    request_data = db.Column(JSONB, nullable=True)
+
     response_status_code = db.Column(db.Integer, nullable=True)
-    response_data = db.Column(JSON, nullable=True)
-    
+    response_data = db.Column(JSONB, nullable=True)
+
     error_message = db.Column(Text, nullable=True)
-    additional_data = db.Column(JSON, nullable=True)
+    additional_data = db.Column(JSONB, nullable=True)
     
     risk_level = db.Column(db.Enum('low', 'medium', 'high', 'critical', name='risk_level'), 
                           default='low', nullable=False, index=True)

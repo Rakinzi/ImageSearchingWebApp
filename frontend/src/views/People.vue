@@ -161,7 +161,7 @@ watch(
   { immediate: true }
 );
 
-const getFaceImageUrl = (faceId) => `${API_BASE_URL}/api/v1/faces/${faceId}/image`;
+const getFaceImageUrl = (faceId) => `${API_BASE_URL}/api/v2/faces/${faceId}/image`;
 
 const isFaceUpdating = (faceId) => Boolean(updatingFaces.value?.[faceId]);
 

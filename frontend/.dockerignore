@@ -1,0 +1,33 @@
+# Dependencies
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+bun.lock
+
+# Development files
+.vscode
+.git
+.gitignore
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist
+
+# Documentation
+README.md
+FEATURE_TOGGLES.md
+
+# Firebase
+.firebaserc
+firebase.json
+
+# Test files
+*.test.js
+*.spec.js
+
+# Misc
+.DS_Store
+*.log
