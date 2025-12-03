@@ -22,7 +22,7 @@ from services.face_service import FaceService
 from tasks.face_tasks import process_faces_async, cluster_faces_async
 
 # Initialize blueprint
-faces_bp_v2 = Blueprint('faces_v2', __name__, url_prefix='/api/v2/faces')
+faces_bp_v2 = Blueprint('faces_v2', __name__, url_prefix='/faces')
 face_service = FaceService()
 
 

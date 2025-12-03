@@ -5,116 +5,297 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verify Your Email - Image Search</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
             line-height: 1.6;
-            color: #333;
+            color: #1a1a1a;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 20px;
+        }
+        .email-wrapper {
             max-width: 600px;
             margin: 0 auto;
-            padding: 20px;
-            background-color: #f8f9fa;
-        }
-        .container {
-            background-color: white;
-            padding: 40px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         }
         .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 30px;
             text-align: center;
-            margin-bottom: 30px;
+            position: relative;
+        }
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="2" fill="white" opacity="0.1"/></svg>');
+            opacity: 0.3;
         }
         .logo {
-            font-size: 24px;
-            font-weight: bold;
-            color: #007bff;
+            font-size: 48px;
             margin-bottom: 10px;
+            animation: float 3s ease-in-out infinite;
         }
-        .title {
-            color: #333;
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        .header-title {
+            color: white;
+            font-size: 28px;
+            font-weight: 700;
+            margin: 0;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        .header-subtitle {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 16px;
+            margin-top: 8px;
+        }
+        .content {
+            padding: 50px 40px;
+        }
+        .greeting {
             font-size: 24px;
             font-weight: 600;
+            color: #1a1a1a;
             margin-bottom: 20px;
+        }
+        .message {
+            font-size: 16px;
+            color: #4a5568;
+            margin-bottom: 30px;
+            line-height: 1.8;
+        }
+        .cta-container {
+            text-align: center;
+            margin: 40px 0;
         }
         .button {
             display: inline-block;
-            background-color: #007bff;
-            color: white;
-            padding: 14px 28px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white !important;
+            padding: 18px 45px;
             text-decoration: none;
-            border-radius: 6px;
+            border-radius: 50px;
             font-weight: 600;
-            margin: 20px 0;
-            transition: background-color 0.3s ease;
+            font-size: 16px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         .button:hover {
-            background-color: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
+        }
+        .divider {
+            text-align: center;
+            margin: 30px 0;
+            color: #a0aec0;
+            font-size: 14px;
         }
         .link-fallback {
             word-break: break-all;
-            color: #6c757d;
-            font-size: 14px;
-            background-color: #f8f9fa;
-            padding: 10px;
-            border-radius: 4px;
-            margin: 15px 0;
+            color: #667eea;
+            font-size: 13px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            margin: 20px 0;
+            font-family: monospace;
         }
-        .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #e9ecef;
-            font-size: 14px;
-            color: #6c757d;
+        .features {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+            border-radius: 12px;
+            padding: 30px;
+            margin: 30px 0;
+        }
+        .features-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 20px;
             text-align: center;
         }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        .feature-item {
+            padding: 12px 0;
+            color: #4a5568;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .feature-item::before {
+            content: '✓';
+            display: inline-block;
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 28px;
+            margin-right: 15px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
         .warning {
-            background-color: #fff3cd;
-            border: 1px solid #ffeaa7;
-            color: #856404;
-            padding: 15px;
-            border-radius: 4px;
-            margin-top: 20px;
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(251, 191, 36, 0.1));
+            border-left: 4px solid #f59e0b;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 30px 0;
+        }
+        .warning-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        .warning-text {
+            color: #92400e;
             font-size: 14px;
+            line-height: 1.6;
+        }
+        .warning-text strong {
+            color: #78350f;
+            font-weight: 600;
+        }
+        .footer {
+            background: #f7fafc;
+            padding: 30px 40px;
+            text-align: center;
+            border-top: 1px solid #e2e8f0;
+        }
+        .footer-text {
+            color: #718096;
+            font-size: 13px;
+            line-height: 1.8;
+        }
+        .footer-links {
+            margin: 15px 0;
+        }
+        .footer-link {
+            color: #667eea;
+            text-decoration: none;
+            margin: 0 10px;
+            font-size: 13px;
+        }
+        .social-icons {
+            margin-top: 20px;
+        }
+        .social-icon {
+            display: inline-block;
+            width: 36px;
+            height: 36px;
+            margin: 0 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            line-height: 36px;
+            text-align: center;
+            color: white;
+            text-decoration: none;
+            font-size: 18px;
+        }
+        @media only screen and (max-width: 600px) {
+            .content {
+                padding: 30px 25px;
+            }
+            .greeting {
+                font-size: 20px;
+            }
+            .header-title {
+                font-size: 24px;
+            }
+            .button {
+                padding: 16px 35px;
+                font-size: 14px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="email-wrapper">
+        <!-- Header -->
         <div class="header">
-            <div class="logo">🔍 Image Search</div>
+            <div class="logo">🔍</div>
+            <h1 class="header-title">Image Search</h1>
+            <p class="header-subtitle">AI-Powered Visual Discovery</p>
         </div>
-        
-        <h1 class="title">Verify Your Email Address</h1>
-        
-        <p>Hello {{ name }},</p>
-        
-        <p>Thank you for registering with Image Search! To complete your registration and start using our AI-powered image search platform, please verify your email address.</p>
-        
-        <div style="text-align: center; margin: 30px 0;">
-            <a href="{{ verification_url }}" class="button">Verify Email Address</a>
+
+        <!-- Content -->
+        <div class="content">
+            <h2 class="greeting">Hello {{ name }}! 👋</h2>
+
+            <p class="message">
+                Welcome to <strong>Image Search</strong>! We're thrilled to have you on board.
+                To unlock the full power of our AI-driven image search platform, please verify
+                your email address by clicking the button below.
+            </p>
+
+            <div class="cta-container">
+                <a href="{{ verification_url }}" class="button">Verify Email Address</a>
+            </div>
+
+            <div class="divider">OR</div>
+
+            <p class="message" style="font-size: 14px; margin-bottom: 10px;">
+                Copy and paste this link into your browser:
+            </p>
+            <div class="link-fallback">{{ verification_url }}</div>
+
+            <div class="warning">
+                <div class="warning-icon">⏰</div>
+                <div class="warning-text">
+                    <strong>Important:</strong> This verification link will expire in 24 hours.
+                    If you didn't create an account with Image Search, you can safely ignore this email.
+                </div>
+            </div>
+
+            <div class="features">
+                <h3 class="features-title">What You Can Do After Verification 🚀</h3>
+                <ul class="feature-list">
+                    <li class="feature-item">Upload and organize thousands of images</li>
+                    <li class="feature-item">Search images using natural language queries</li>
+                    <li class="feature-item">Automatically detect and group faces with AI</li>
+                    <li class="feature-item">Extract text from images with OCR technology</li>
+                    <li class="feature-item">Access powerful similarity search features</li>
+                </ul>
+            </div>
         </div>
-        
-        <p>If the button above doesn't work, you can copy and paste the following link into your browser:</p>
-        
-        <div class="link-fallback">
-            {{ verification_url }}
-        </div>
-        
-        <div class="warning">
-            <strong>⏰ Important:</strong> This verification link will expire in 24 hours. If you didn't create an account with Image Search, please ignore this email.
-        </div>
-        
-        <p>Once verified, you'll be able to:</p>
-        <ul>
-            <li>Upload and organize your images</li>
-            <li>Search images using natural language</li>
-            <li>Automatically detect and group faces</li>
-            <li>Access advanced AI-powered features</li>
-        </ul>
-        
+
+        <!-- Footer -->
         <div class="footer">
-            <p>Need help? Contact our support team at support@imagesearch.com</p>
-            <p>&copy; 2025 Image Search. All rights reserved.</p>
+            <p class="footer-text">
+                Need help? We're here for you!<br>
+                Contact us at <a href="mailto:support@imagesearch.com" style="color: #667eea;">support@imagesearch.com</a>
+            </p>
+            <div class="footer-links">
+                <a href="#" class="footer-link">Privacy Policy</a>
+                <a href="#" class="footer-link">Terms of Service</a>
+                <a href="#" class="footer-link">Help Center</a>
+            </div>
+            <div class="social-icons">
+                <a href="#" class="social-icon">𝕏</a>
+                <a href="#" class="social-icon">in</a>
+                <a href="#" class="social-icon">f</a>
+            </div>
+            <p class="footer-text" style="margin-top: 20px;">
+                &copy; 2025 Image Search. All rights reserved.
+            </p>
         </div>
     </div>
 </body>

@@ -320,6 +320,7 @@ class FaceService:
             return generate_unique_id('checksum_')
     
     def cluster_user_faces(self, user_id: int) -> Dict[str, Any]:
+        self._ensure_initialized()
         try:
             faces = (Face.query
                      .outerjoin(Image, Face.image_id == Image.id)
@@ -489,30 +490,50 @@ class FaceService:
     def get_face_clusters_for_user(self, user_id: int) -> List[Dict[str, Any]]:
         try:
             from sqlalchemy import func
-            
+
+            # Query clusters from both old Image and new ModernImage tables
             cluster_data = db.session.query(
                 Face.face_cluster_id,
                 func.count(Face.id).label('face_count'),
                 func.avg(Face.confidence_score).label('avg_confidence'),
                 func.max(Face.quality_score).label('max_quality')
-            ).join(Image).filter(
-                Image.user_id == user_id,
+            ).outerjoin(Image, Face.image_id == Image.id
+            ).outerjoin(ModernImage, Face.modern_image_id == ModernImage.id
+            ).filter(
+                db.or_(
+                    Image.user_id == user_id,
+                    ModernImage.user_id == user_id
+                ),
                 Face.face_cluster_id.isnot(None)
             ).group_by(Face.face_cluster_id).all()
-            
+
             clusters = []
             for cluster_id, face_count, avg_confidence, max_quality in cluster_data:
-                primary_face = Face.query.join(Image).filter(
-                    Face.face_cluster_id == cluster_id,
-                    Face.is_primary_face == True,
-                    Image.user_id == user_id
-                ).first()
-                
-                sample_faces = Face.query.join(Image).filter(
-                    Face.face_cluster_id == cluster_id,
-                    Image.user_id == user_id
-                ).order_by(Face.quality_score.desc()).limit(5).all()
-                
+                # Find primary face in either table
+                primary_face = (Face.query
+                    .outerjoin(Image, Face.image_id == Image.id)
+                    .outerjoin(ModernImage, Face.modern_image_id == ModernImage.id)
+                    .filter(
+                        Face.face_cluster_id == cluster_id,
+                        Face.is_primary_face == True,
+                        db.or_(
+                            Image.user_id == user_id,
+                            ModernImage.user_id == user_id
+                        )
+                    ).first())
+
+                # Get sample faces from either table
+                sample_faces = (Face.query
+                    .outerjoin(Image, Face.image_id == Image.id)
+                    .outerjoin(ModernImage, Face.modern_image_id == ModernImage.id)
+                    .filter(
+                        Face.face_cluster_id == cluster_id,
+                        db.or_(
+                            Image.user_id == user_id,
+                            ModernImage.user_id == user_id
+                        )
+                    ).order_by(Face.quality_score.desc()).limit(5).all())
+
                 cluster_info = {
                     'cluster_id': cluster_id,
                     'face_count': face_count,
@@ -523,35 +544,42 @@ class FaceService:
                     'person_name': primary_face.person_name if primary_face else None
                 }
                 clusters.append(cluster_info)
-            
+
             return sorted(clusters, key=lambda x: x['face_count'], reverse=True)
-            
+
         except Exception as e:
             logger.error(f"Get face clusters failed: {str(e)}")
             return []
     
-    def assign_person_to_cluster(self, cluster_id: str, person_name: str, 
+    def assign_person_to_cluster(self, cluster_id: str, person_name: str,
                                user_id: int, manual: bool = True) -> Dict[str, Any]:
         try:
-            faces = Face.query.join(Image).filter(
-                Face.face_cluster_id == cluster_id,
-                Image.user_id == user_id
-            ).all()
-            
+            # Query faces from both old Image and new ModernImage tables
+            faces = (Face.query
+                .outerjoin(Image, Face.image_id == Image.id)
+                .outerjoin(ModernImage, Face.modern_image_id == ModernImage.id)
+                .filter(
+                    Face.face_cluster_id == cluster_id,
+                    db.or_(
+                        Image.user_id == user_id,
+                        ModernImage.user_id == user_id
+                    )
+                ).all())
+
             if not faces:
                 return {
                     'success': False,
                     'message': 'Cluster not found or empty',
                     'faces_updated': 0
                 }
-            
+
             person_id = f"person_{person_name.lower().replace(' ', '_')}"
-            
+
             updated_count = 0
             for face in faces:
                 face.assign_person(person_name, person_id, manual)
                 updated_count += 1
-            
+
             return {
                 'success': True,
                 'message': f'Assigned {updated_count} faces to {person_name}',
@@ -559,7 +587,7 @@ class FaceService:
                 'person_id': person_id,
                 'cluster_id': cluster_id
             }
-            
+
         except Exception as e:
             db.session.rollback()
             logger.error(f"Assign person to cluster failed: {str(e)}")
@@ -572,40 +600,67 @@ class FaceService:
     def get_user_face_stats(self, user_id: int) -> Dict[str, Any]:
         try:
             from sqlalchemy import func
-            
-            total_faces = Face.query.join(Image).filter(
-                Image.user_id == user_id
-            ).count()
-            
-            status_stats = db.session.query(
+
+            # Count faces from both old Image and new ModernImage tables
+            total_faces = (Face.query
+                .outerjoin(Image, Face.image_id == Image.id)
+                .outerjoin(ModernImage, Face.modern_image_id == ModernImage.id)
+                .filter(
+                    db.or_(
+                        Image.user_id == user_id,
+                        ModernImage.user_id == user_id
+                    )
+                ).count())
+
+            status_stats = (db.session.query(
                 Face.status,
                 func.count(Face.id).label('count')
-            ).join(Image).filter(
-                Image.user_id == user_id
-            ).group_by(Face.status).all()
-            
-            unique_persons = db.session.query(
+            ).outerjoin(Image, Face.image_id == Image.id
+            ).outerjoin(ModernImage, Face.modern_image_id == ModernImage.id
+            ).filter(
+                db.or_(
+                    Image.user_id == user_id,
+                    ModernImage.user_id == user_id
+                )
+            ).group_by(Face.status).all())
+
+            unique_persons = (db.session.query(
                 func.count(func.distinct(Face.person_id))
-            ).join(Image).filter(
-                Image.user_id == user_id,
+            ).outerjoin(Image, Face.image_id == Image.id
+            ).outerjoin(ModernImage, Face.modern_image_id == ModernImage.id
+            ).filter(
+                db.or_(
+                    Image.user_id == user_id,
+                    ModernImage.user_id == user_id
+                ),
                 Face.person_id.isnot(None)
-            ).scalar() or 0
-            
-            unique_clusters = db.session.query(
+            ).scalar() or 0)
+
+            unique_clusters = (db.session.query(
                 func.count(func.distinct(Face.face_cluster_id))
-            ).join(Image).filter(
-                Image.user_id == user_id,
+            ).outerjoin(Image, Face.image_id == Image.id
+            ).outerjoin(ModernImage, Face.modern_image_id == ModernImage.id
+            ).filter(
+                db.or_(
+                    Image.user_id == user_id,
+                    ModernImage.user_id == user_id
+                ),
                 Face.face_cluster_id.isnot(None)
-            ).scalar() or 0
-            
-            avg_confidence = db.session.query(
+            ).scalar() or 0)
+
+            avg_confidence = (db.session.query(
                 func.avg(Face.confidence_score)
-            ).join(Image).filter(
-                Image.user_id == user_id
-            ).scalar() or 0
-            
+            ).outerjoin(Image, Face.image_id == Image.id
+            ).outerjoin(ModernImage, Face.modern_image_id == ModernImage.id
+            ).filter(
+                db.or_(
+                    Image.user_id == user_id,
+                    ModernImage.user_id == user_id
+                )
+            ).scalar() or 0)
+
             status_breakdown = {status: count for status, count in status_stats}
-            
+
             return {
                 'total_faces': total_faces,
                 'unique_persons': unique_persons,
@@ -619,7 +674,7 @@ class FaceService:
                     'failed': status_breakdown.get('failed', 0)
                 }
             }
-            
+
         except Exception as e:
             logger.error(f"Get user face stats failed: {str(e)}")
             return {
@@ -635,15 +690,24 @@ class FaceService:
     
     def cleanup_orphaned_faces(self, user_id: Optional[int] = None) -> Dict[str, int]:
         try:
-            query = Face.query.join(Image)
+            # Query faces from both old Image and new ModernImage tables
+            query = (Face.query
+                .outerjoin(Image, Face.image_id == Image.id)
+                .outerjoin(ModernImage, Face.modern_image_id == ModernImage.id))
+
             if user_id:
-                query = query.filter(Image.user_id == user_id)
-            
+                query = query.filter(
+                    db.or_(
+                        Image.user_id == user_id,
+                        ModernImage.user_id == user_id
+                    )
+                )
+
             faces = query.all()
-            
+
             cleaned_faces = 0
             cleaned_files = 0
-            
+
             for face in faces:
                 if not os.path.exists(face.file_path):
                     if face.face_id:
@@ -651,14 +715,14 @@ class FaceService:
                     db.session.delete(face)
                     cleaned_faces += 1
                     cleaned_files += 1
-            
+
             db.session.commit()
-            
+
             return {
                 'cleaned_faces': cleaned_faces,
                 'cleaned_files': cleaned_files
             }
-            
+
         except Exception as e:
             db.session.rollback()
             logger.error(f"Face cleanup failed: {str(e)}")

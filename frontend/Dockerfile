@@ -1,14 +1,34 @@
 # Multi-stage build for Vue.js frontend
 # Stage 1: Build stage
-FROM node:20-alpine AS builder
+FROM alpine:latest AS builder
+
+# Install Node.js and Bun with required C++ libraries
+RUN apk add --no-cache \
+    curl \
+    unzip \
+    bash \
+    libstdc++ \
+    libgcc \
+    && curl -fsSL https://bun.sh/install | bash \
+    && rm -rf /var/cache/apk/*
+
+# Add Bun to PATH
+ENV BUN_INSTALL="/root/.bun"
+ENV PATH="$BUN_INSTALL/bin:$PATH"
 
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production=false
+# Install dependencies with retry logic and cache clearing
+RUN rm -rf ~/.bun/install/cache && \
+    bun install --verbose || \
+    (echo "First attempt failed, retrying..." && sleep 2 && bun install --verbose) || \
+    (echo "Second attempt failed, trying with --force..." && bun install --force --verbose)
+
+# Explicitly install the platform-specific Rollup binary for Alpine (musl libc)
+RUN bun add -d @rollup/rollup-linux-x64-musl
 
 # Copy source code
 COPY . .
@@ -18,7 +38,7 @@ ARG VITE_API_URL=http://backend:8080
 ENV VITE_API_URL=${VITE_API_URL}
 
 # Build the application
-RUN npm run build
+RUN bun run build
 
 # Stage 2: Production stage with nginx
 FROM nginx:alpine

@@ -22,11 +22,19 @@ RUN apt-get update && apt-get install -y \
     libxext6 \
     libxrender-dev \
     libgl1-mesa-glx \
+    libssl-dev \
     wget \
     curl \
     git \
     netcat \
+    cargo \
+    rustc \
     && rm -rf /var/lib/apt/lists/*
+
+# Install an up-to-date Rust toolchain (needed for building tokenizers wheels)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+    sh -s -- -y --profile minimal --default-toolchain 1.80.1
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Install newer SQLite for ChromaDB compatibility (requires 3.35.0+)
 RUN wget https://www.sqlite.org/2023/sqlite-autoconf-3420000.tar.gz && \
@@ -47,7 +55,8 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 # Set UV environment variables for optimal Docker performance
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    UV_PROJECT_ENVIRONMENT=/usr/local
+    UV_PROJECT_ENVIRONMENT=/usr/local \
+    RUSTFLAGS="-A invalid_reference_casting"
 
 COPY requirements-minimal.txt .
 

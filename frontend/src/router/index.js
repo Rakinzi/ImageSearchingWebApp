@@ -17,41 +17,42 @@ const routes = [
     path: '/upload',
     name: 'Upload',
     component: Upload,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, title: 'Upload Images' }
   },
   {
     path: '/',
     name: 'Dashboard',
     component: Dashboard,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, title: 'Dashboard' }
   },
   {
     path: '/images',
     name: 'Images',
     component: Images,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, title: 'All Images' }
   },
   {
     path: '/images/:id',
     name: 'ImageDetail',
     component: ImageDetail,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, title: 'Image Details' }
   },
   {
     path: '/people',
     name: 'People',
     component: People,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, title: 'People' }
   },
   {
     path: '/faces/:faceId',
     name: 'RelatedFaces',
-    component: RelatedFaces
+    component: RelatedFaces,
+    meta: { title: 'Related Faces' }
   },
 
-  { path: '/login', name: 'Login', component: Login, meta: { layout: 'auth' } },
-  { path: '/register', name: 'Register', component: Register, meta: { layout: 'auth' } },
-  { path: '/verify-email', name: 'verify-email', component: VerifyEmail, meta: {  layout: 'auth' } }
+  { path: '/login', name: 'Login', component: Login, meta: { layout: 'auth', title: 'Login' } },
+  { path: '/register', name: 'Register', component: Register, meta: { layout: 'auth', title: 'Register' } },
+  { path: '/verify-email', name: 'verify-email', component: VerifyEmail, meta: {  layout: 'auth', title: 'Verify Email' } }
 ];
 
 const router = createRouter({
@@ -144,6 +145,12 @@ router.beforeEach(async (to, from, next) => {
     // Route doesn't require auth, proceed
     next();
   }
+});
+
+// Update page title after navigation
+router.afterEach((to) => {
+  const baseTitle = 'Image Search';
+  document.title = to.meta.title ? `${to.meta.title} - ${baseTitle}` : baseTitle;
 });
 
 

@@ -164,26 +164,65 @@ class EmailService:
             <meta charset="utf-8">
             <title>Verify Your Email</title>
         </head>
-        <body style="font-family: Arial, sans-serif; margin: 40px;">
-            <div style="max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #333;">Verify Your Email Address</h2>
-                <p>Hello {data.get('name', 'User')},</p>
-                <p>Thank you for registering with Image Search. Please click the button below to verify your email address:</p>
-                <div style="text-align: center; margin: 30px 0;">
-                    <a href="{data.get('verification_url', '#')}" 
-                       style="background-color: #007bff; color: white; padding: 12px 24px; 
-                              text-decoration: none; border-radius: 5px; display: inline-block;">
-                        Verify Email Address
-                    </a>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                     margin: 0; padding: 40px 20px;
+                     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <div style="max-width: 600px; margin: 0 auto; background: white;
+                        border-radius: 16px; overflow: hidden;
+                        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                           padding: 40px 30px; text-align: center;">
+                    <div style="font-size: 48px; margin-bottom: 10px;">🔍</div>
+                    <h1 style="color: white; font-size: 28px; margin: 0;
+                               text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);">Image Search</h1>
+                    <p style="color: rgba(255, 255, 255, 0.9); font-size: 16px; margin-top: 8px;">
+                        AI-Powered Visual Discovery
+                    </p>
                 </div>
-                <p>If the button doesn't work, copy and paste this link into your browser:</p>
-                <p style="word-break: break-all; color: #666;">
-                    {data.get('verification_url', '#')}
-                </p>
-                <p style="color: #666; font-size: 14px; margin-top: 30px;">
-                    This verification link will expire in 24 hours. If you didn't create an account, 
-                    please ignore this email.
-                </p>
+                <div style="padding: 50px 40px;">
+                    <h2 style="color: #1a1a1a; font-size: 24px; margin-bottom: 20px;">
+                        Hello {data.get('name', 'User')}! 👋
+                    </h2>
+                    <p style="color: #4a5568; line-height: 1.8; margin-bottom: 30px;">
+                        Welcome to <strong>Image Search</strong>! Please verify your email address to unlock
+                        the full power of our AI-driven image search platform.
+                    </p>
+                    <div style="text-align: center; margin: 40px 0;">
+                        <a href="{data.get('verification_url', '#')}"
+                           style="display: inline-block;
+                                  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                                  color: white; padding: 18px 45px; text-decoration: none;
+                                  border-radius: 50px; font-weight: 600; font-size: 16px;
+                                  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+                                  text-transform: uppercase; letter-spacing: 0.5px;">
+                            Verify Email Address
+                        </a>
+                    </div>
+                    <p style="color: #4a5568; font-size: 14px; margin: 10px 0;">
+                        Or copy and paste this link:
+                    </p>
+                    <div style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+                               border: 1px solid rgba(102, 126, 234, 0.2); padding: 15px;
+                               border-radius: 8px; word-break: break-all; color: #667eea;
+                               font-size: 13px; font-family: monospace;">
+                        {data.get('verification_url', '#')}
+                    </div>
+                    <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(251, 191, 36, 0.1));
+                               border-left: 4px solid #f59e0b; padding: 20px;
+                               border-radius: 8px; margin: 30px 0;">
+                        <div style="font-size: 24px; margin-bottom: 8px;">⏰</div>
+                        <p style="color: #92400e; font-size: 14px; margin: 0; line-height: 1.6;">
+                            <strong style="color: #78350f;">Important:</strong> This link expires in 24 hours.
+                            If you didn't create an account, safely ignore this email.
+                        </p>
+                    </div>
+                </div>
+                <div style="background: #f7fafc; padding: 30px; text-align: center;
+                           border-top: 1px solid #e2e8f0;">
+                    <p style="color: #718096; font-size: 13px; margin: 0;">
+                        &copy; 2025 Image Search. All rights reserved.
+                    </p>
+                </div>
             </div>
         </body>
         </html>

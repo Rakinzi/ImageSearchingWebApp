@@ -770,10 +770,13 @@ class ModernImageService:
             image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
             boxes, probs = self.mtcnn.detect(image_rgb)
 
-            detections = [
-                (box, prob) for box, prob in zip(boxes or [], probs or [])
-                if prob is not None and prob >= self.face_detection_threshold
-            ]
+            detections = []
+            if boxes is not None and probs is not None:
+                for box, prob in zip(boxes, probs):
+                    # Convert numpy array to scalar if needed
+                    prob_value = float(prob) if hasattr(prob, 'item') else prob
+                    if prob_value is not None and prob_value >= self.face_detection_threshold:
+                        detections.append((box, prob_value))
 
             fallback_detections = []
             if not detections:

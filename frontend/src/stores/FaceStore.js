@@ -6,7 +6,10 @@ export const useFaceStore = defineStore('faceStore', {
   state: () => ({
     faceData: null,
     allImages: null,
+    clusters: null,
+    persons: null,
     isLoading: false,
+    isClustering: false,
     error: null,
     updatingFaces: {},
   }),
@@ -20,14 +23,71 @@ export const useFaceStore = defineStore('faceStore', {
 
       try {
         const response = await apiService.faces.list();
-        this.faceData = response.data;
-        console.log('Face data loaded successfully');
+        this.faceData = response.data.data; // Extract inner data object
+        console.log('Face data loaded:', this.faceData);
       } catch (error) {
         console.error('Error fetching face data:', error);
         const errorInfo = handleApiError(error);
         this.error = errorInfo.message;
       } finally {
         this.isLoading = false;
+      }
+    },
+
+    async loadClusters() {
+      console.log('Loading face clusters...');
+      this.isLoading = true;
+      this.clusters = null;
+      this.error = null;
+
+      try {
+        const response = await apiService.faces.getClusters();
+        this.clusters = response.data.data; // Extract inner data object
+        console.log('Clusters loaded:', this.clusters);
+      } catch (error) {
+        console.error('Error fetching clusters:', error);
+        const errorInfo = handleApiError(error);
+        this.error = errorInfo.message;
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
+    async loadPersons() {
+      console.log('Loading persons...');
+      this.isLoading = true;
+      this.persons = null;
+      this.error = null;
+
+      try {
+        const response = await apiService.faces.getPersons();
+        this.persons = response.data.data; // Extract inner data object
+        console.log('Persons loaded:', this.persons);
+      } catch (error) {
+        console.error('Error fetching persons:', error);
+        const errorInfo = handleApiError(error);
+        this.error = errorInfo.message;
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
+    async triggerClustering() {
+      console.log('Triggering face clustering...');
+      this.isClustering = true;
+      this.error = null;
+
+      try {
+        const response = await apiService.faces.cluster();
+        console.log('Clustering triggered:', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Error triggering clustering:', error);
+        const errorInfo = handleApiError(error);
+        this.error = errorInfo.message;
+        throw error;
+      } finally {
+        this.isClustering = false;
       }
     },
 
@@ -39,8 +99,8 @@ export const useFaceStore = defineStore('faceStore', {
 
       try {
         const response = await apiService.images.list();
-        this.allImages = response.data; // Store the response in Pinia state
-        console.log('Images data loaded successfully');
+        this.allImages = response.data.data; // Extract inner data object
+        console.log('Images data loaded:', this.allImages);
       } catch (error) {
         console.error('Error fetching images data:', error);
         const errorInfo = handleApiError(error);
