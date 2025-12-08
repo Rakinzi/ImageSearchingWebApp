@@ -101,13 +101,8 @@ const getStatusVariant = (status) => {
 <template>
   <div class="w-full max-w-[1400px] mx-auto p-6 space-y-6">
     <!-- Header -->
-    <div class="flex items-center justify-between">
-      <Button @click="router.back()" variant="ghost" class="gap-2">
-        <ArrowLeft class="h-4 w-4" />
-        Back
-      </Button>
-
-      <div v-if="imageData" class="flex gap-2">
+    <div class="flex flex-wrap items-center gap-3">
+      <div v-if="imageData" class="flex flex-wrap items-center gap-2">
         <Button @click="downloadImage" variant="default" size="sm" class="gap-2">
           <Download class="h-4 w-4" />
           Download
@@ -121,6 +116,11 @@ const getStatusVariant = (status) => {
           Reprocess
         </Button>
       </div>
+
+      <Button @click="router.back()" variant="ghost" class="gap-2 ml-auto">
+        <ArrowLeft class="h-4 w-4" />
+        Back
+      </Button>
     </div>
 
     <!-- Loading State -->

@@ -16,8 +16,8 @@ from marshmallow import Schema, fields, validate
 from extensions import db, limiter
 from models.face import Face
 from models.modern_image import ModernImage
+from models.audit_log import AuditLog
 from middleware.auth import require_auth
-from middleware.audit_logger import AuditLogger
 from services.face_service import FaceService
 from tasks.face_tasks import process_faces_async, cluster_faces_async
 
@@ -381,7 +381,7 @@ def assign_person_to_faces(current_user):
             face.assign_person(req_data.person_name, person_id, manual=True)
             updated_faces.append(face.to_dict())
 
-        AuditLogger.log_resource_access(
+        AuditLog.log_resource_access(
             resource_type='face',
             resource_id=f"batch_{len(faces)}_faces",
             action='assign_person',

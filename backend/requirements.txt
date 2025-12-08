@@ -45,6 +45,7 @@ open-clip-torch  # OpenCLIP for better image embeddings (ViT-L/14)
 facenet-pytorch
 deepface
 chromadb
+pydantic-settings  # Required for chromadb compatibility with pydantic v2
 sentence-transformers
 pgvector  # PostgreSQL vector extension for efficient similarity search
 

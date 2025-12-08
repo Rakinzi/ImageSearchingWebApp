@@ -2,7 +2,13 @@
   <div class="p-6">
     <!-- Page Header -->
     <div class="mb-6">
-      <h1 class="text-3xl font-bold tracking-tight">Images with this Face</h1>
+      <div class="flex flex-wrap items-center justify-between gap-4 mb-2">
+        <h1 class="text-3xl font-bold tracking-tight">Images with this Face</h1>
+        <Button @click="router.back()" variant="ghost" class="gap-2">
+          <ArrowLeft class="h-4 w-4" />
+          Back
+        </Button>
+      </div>
       <p v-if="faceInfo" class="text-muted-foreground mt-1">
         {{ faceInfo.person_name || 'Unknown Person' }} - {{ relatedImages.length }} images found
       </p>
@@ -60,6 +66,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { ArrowLeft } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -81,12 +88,12 @@ const loadRelatedImages = async () => {
     const response = await apiService.faces.getImages(faceId);
     console.log('Face images response:', response.data);
 
-    relatedImages.value = response.data.images || [];
+    relatedImages.value = response.data.data.images || [];
     faceInfo.value = {
-      face_id: response.data.face_id,
-      person_name: response.data.person_name,
-      face_cluster_id: response.data.face_cluster_id,
-      total_similar_faces: response.data.total_similar_faces
+      face_id: response.data.data.face_id,
+      person_name: response.data.data.person_name,
+      face_cluster_id: response.data.data.face_cluster_id,
+      total_similar_faces: response.data.data.total_similar_faces
     };
   } catch (err) {
     console.error('Error fetching related images:', err);

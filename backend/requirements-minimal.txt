@@ -14,7 +14,8 @@ itsdangerous
 # Database
 SQLAlchemy
 psycopg2-binary
-
+python-magic
+pydantic<2.0.0
 # Security and authentication
 cryptography
 PyJWT
@@ -30,12 +31,15 @@ celery
 # Image processing
 Pillow
 opencv-python
+opencv-python-headless
 numpy
 ExifRead
 
 # AI/ML Core (CPU versions)
 torch
 torchvision
+torchaudio
+--extra-index-url https://download.pytorch.org/whl/cpu
 tf-keras
 scikit-learn
 
@@ -44,6 +48,7 @@ git+https://github.com/openai/CLIP.git
 open-clip-torch  # OpenCLIP for better image embeddings (ViT-L/14)
 facenet-pytorch
 deepface
+face-recognition
 chromadb
 sentence-transformers
 pgvector  # PostgreSQL vector extension for efficient similarity search
@@ -51,21 +56,31 @@ pgvector  # PostgreSQL vector extension for efficient similarity search
 # NLP
 spacy
 nltk
+contractions
+
+# OCR (Optical Character Recognition)
+# EasyOCR for best accuracy (CPU version)
+easyocr
+# Alternative OCR backends (optional, uncomment if needed):
+# paddleocr
+# paddlepaddle
+# pytesseract
 
 # Utilities
 geopy
 python-dotenv
 click
 structlog
-jinja2
 python-dateutil
-python-magic
 
 # Server
 gunicorn
 eventlet
 
-# Development/Testing (optional)
+# Monitoring
+prometheus-client
+
+# Development/Testing
 pytest
 pytest-flask
 pytest-cov
